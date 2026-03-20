@@ -1,0 +1,56 @@
+@theme {
+  /* ── Light mode defaults ── */
+
+  /* Background colors — Slate palette (light) */
+  --color-bg-primary: oklch(0.985 0.002 247.839); /* slate-50 */
+  --color-bg-secondary: oklch(0.968 0.007 264.536); /* slate-100 */
+  --color-bg-tertiary: oklch(0.929 0.013 255.508); /* slate-200 */
+  --color-bg-hover: oklch(0.869 0.022 252.894); /* slate-300 */
+
+  /* Active / success — Emerald */
+  --color-active: oklch(0.508 0.118 165.612); /* emerald-600 */
+  --color-active-dim: oklch(0.765 0.177 163.223); /* emerald-400 */
+
+  /* Error — Rose */
+  --color-error: oklch(0.514 0.222 16.935); /* rose-600 */
+  --color-error-dim: oklch(0.712 0.194 13.428); /* rose-400 */
+
+  /* Warning — Amber */
+  --color-warning: oklch(0.666 0.179 58.318); /* amber-600 */
+
+  /* Text colors */
+  --color-text-primary: oklch(0.129 0.042 264.695); /* slate-950 */
+  --color-text-secondary: oklch(0.446 0.043 257.281); /* slate-600 */
+  --color-text-muted: oklch(0.556 0.046 257.417); /* slate-500 */
+
+  /* Border colors */
+  --color-border: oklch(0.869 0.022 252.894); /* slate-300 */
+  --color-border-active: oklch(0.508 0.118 165.612); /* emerald-600 */
+
+  /* Typography */
+  --font-size-xxs: 0.625rem; /* 10px — timestamps, badges */
+  --line-height-xxs: 0.875rem;
+}
+
+/* ── Dark mode overrides ── */
+.dark {
+  --color-bg-primary: oklch(0.129 0.042 264.695); /* slate-950 */
+  --color-bg-secondary: oklch(0.208 0.042 265.755); /* slate-900 */
+  --color-bg-tertiary: oklch(0.279 0.041 260.031); /* slate-800 */
+  --color-bg-hover: oklch(0.332 0.038 257.287); /* slate-700 */
+
+  --color-active: oklch(0.765 0.177 163.223); /* emerald-400 */
+  --color-active-dim: oklch(0.508 0.118 165.612); /* emerald-600 */
+
+  --color-error: oklch(0.712 0.194 13.428); /* rose-400 */
+  --color-error-dim: oklch(0.514 0.222 16.935); /* rose-600 */
+
+  --color-warning: oklch(0.828 0.189 84.429); /* amber-400 */
+
+  --color-text-primary: oklch(0.968 0.007 264.536); /* slate-100 */
+  --color-text-secondary: oklch(0.704 0.04 256.788); /* slate-400 */
+  --color-text-muted: oklch(0.556 0.046 257.417); /* slate-500 */
+
+  --color-border: oklch(0.279 0.041 260.031); /* slate-800 */
+  --color-border-active: oklch(0.765 0.177 163.223); /* emerald-400 */
+}

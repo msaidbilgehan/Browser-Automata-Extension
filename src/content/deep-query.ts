@@ -1,0 +1,108 @@
+/**
+ * Shadow DOM–aware query utilities.
+ *
+ * `document.querySelectorAll` only searches the light DOM tree. Many modern
+ * sites (YouTube, GitHub, Salesforce, etc.) use Web Components with open
+ * shadow roots. These utilities recursively traverse shadow boundaries so
+ * that CSS selectors work regardless of nesting depth.
+ */
+
+/**
+ * Find all elements matching `selector` across the document and every
+ * reachable open shadow root.  Returns an empty array for invalid selectors.
+ */
+export function querySelectorAllDeep(selector: string): Element[] {
+  const results: Element[] = [];
+  try {
+    collectMatches(document, selector, results);
+  } catch {
+    // Invalid selector — return empty
+  }
+  return results;
+}
+
+/**
+ * Find the first element matching `selector` across shadow boundaries,
+ * or `null` if nothing matches.
+ */
+export function querySelectorDeep(selector: string): Element | null {
+  try {
+    return findFirst(document, selector);
+  } catch {
+    return null;
+  }
+}
+
+// ─── Internal helpers ────────────────────────────────────────────────────────
+
+/**
+ * Recursively collect matches from a root (Document or ShadowRoot) and
+ * all shadow roots reachable from its descendants.
+ */
+function collectMatches(
+  root: Document | ShadowRoot,
+  selector: string,
+  out: Element[],
+): void {
+  // Query the current root's tree
+  try {
+    const matches = root.querySelectorAll(selector);
+    for (const el of matches) {
+      out.push(el);
+    }
+  } catch {
+    // Invalid selector at this level — skip
+  }
+
+  // Recurse into every open shadow root reachable from this root
+  walkShadowRoots(root, (shadowRoot) => {
+    try {
+      const matches = shadowRoot.querySelectorAll(selector);
+      for (const el of matches) {
+        out.push(el);
+      }
+    } catch {
+      // skip
+    }
+  });
+}
+
+/** Find the first match across shadow boundaries (depth-first). */
+function findFirst(
+  root: Document | ShadowRoot,
+  selector: string,
+): Element | null {
+  try {
+    const match = root.querySelector(selector);
+    if (match !== null) return match;
+  } catch {
+    // skip
+  }
+
+  // Check shadow roots of all elements in this root
+  const allElements = root.querySelectorAll("*");
+  for (const el of allElements) {
+    if (el.shadowRoot !== null) {
+      const found = findFirst(el.shadowRoot, selector);
+      if (found !== null) return found;
+    }
+  }
+  return null;
+}
+
+/**
+ * Walk every open shadow root reachable from `root`, calling `fn` for each.
+ * Avoids infinite loops by visiting each shadow root exactly once.
+ */
+function walkShadowRoots(
+  root: Document | ShadowRoot,
+  fn: (sr: ShadowRoot) => void,
+): void {
+  const allElements = root.querySelectorAll("*");
+  for (const el of allElements) {
+    if (el.shadowRoot !== null) {
+      fn(el.shadowRoot);
+      walkShadowRoots(el.shadowRoot, fn);
+    }
+  }
+}

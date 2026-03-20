@@ -1,0 +1,341 @@
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { Users, Plus, ArrowLeft, Save, Trash2, Check } from "lucide-react";
+import { create } from "zustand";
+import type { Profile, EntityId } from "@/shared/types/entities";
+import { localStore, onStorageChange } from "@/shared/storage";
+import { sendToBackground } from "@/shared/messaging";
+import { generateId, now } from "@/shared/utils";
+import { Button } from "../ui/Button";
+import { Card } from "../ui/Card";
+import { Input } from "../ui/Input";
+
+// ─── Inline Profiles Store ──────────────────────────────────────────────────
+
+interface ProfilesState {
+  profiles: Record<string, Profile>;
+  activeProfileId: EntityId | null;
+  loading: boolean;
+  editingId: EntityId | null;
+
+  load: () => Promise<void>;
+  save: (profile: Profile) => Promise<void>;
+  remove: (id: EntityId) => Promise<void>;
+  switchProfile: (id: EntityId | null) => Promise<void>;
+  setEditing: (id: EntityId | null) => void;
+}
+
+const useProfilesStore = create<ProfilesState>((set) => {
+  onStorageChange("profiles", (newValue) => {
+    if (newValue) set({ profiles: newValue });
+  });
+
+  return {
+    profiles: {},
+    activeProfileId: null,
+    loading: false,
+    editingId: null,
+
+    load: async () => {
+      set({ loading: true });
+      const profiles = (await localStore.get("profiles")) ?? {};
+      const state = await sendToBackground({ type: "GET_STATE" });
+      set({ profiles, activeProfileId: state.activeProfileId, loading: false });
+    },
+
+    save: async (profile) => {
+      await sendToBackground({ type: "PROFILE_SAVE", profile });
+      set((s) => ({
+        profiles: { ...s.profiles, [profile.id]: profile },
+      }));
+    },
+
+    remove: async (id) => {
+      await sendToBackground({ type: "PROFILE_DELETE", profileId: id });
+      set((s) => {
+        const next = { ...s.profiles };
+        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+        delete next[id];
+        return {
+          profiles: next,
+          editingId: s.editingId === id ? null : s.editingId,
+          activeProfileId: s.activeProfileId === id ? null : s.activeProfileId,
+        };
+      });
+    },
+
+    switchProfile: async (id) => {
+      await sendToBackground({ type: "PROFILE_SWITCH", profileId: id });
+      set({ activeProfileId: id });
+    },
+
+    setEditing: (id) => {
+      set({ editingId: id });
+    },
+  };
+});
+
+// ─── Helper ─────────────────────────────────────────────────────────────────
+
+function createNewProfile(): Profile {
+  const timestamp = now();
+  return {
+    id: generateId(),
+    name: "",
+    description: "",
+    isActive: false,
+    meta: { createdAt: timestamp, updatedAt: timestamp },
+  };
+}
+
+// ─── Profile Editor ─────────────────────────────────────────────────────────
+
+function ProfileEditor({
+  initial,
+  isNew,
+  onBack,
+}: {
+  initial: Profile;
+  isNew: boolean;
+  onBack: () => void;
+}) {
+  const { save, remove } = useProfilesStore();
+  const [draft, setDraft] = useState<Profile>(initial);
+
+  const patch = useCallback(<K extends keyof Profile>(key: K, value: Profile[K]) => {
+    setDraft((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
+  const handleSave = async () => {
+    const updated: Profile = {
+      ...draft,
+      meta: { ...draft.meta, updatedAt: now() },
+    };
+    await save(updated);
+    onBack();
+  };
+
+  const handleDelete = async () => {
+    await remove(draft.id);
+    onBack();
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onBack}
+          className="text-text-muted hover:bg-bg-tertiary hover:text-text-primary rounded p-1 transition-colors"
+          aria-label="Back"
+        >
+          <ArrowLeft size={16} />
+        </button>
+        <h2 className="text-text-primary flex-1 text-sm font-semibold">
+          {isNew ? "New Profile" : "Edit Profile"}
+        </h2>
+        <Button variant="primary" onClick={() => void handleSave()} className="gap-1">
+          <Save size={12} />
+          Save
+        </Button>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Input
+          label="Name"
+          value={draft.name}
+          onChange={(e) => {
+            patch("name", e.target.value);
+          }}
+          placeholder="Work, Personal, Testing..."
+        />
+        <div className="flex flex-col gap-1">
+          <label htmlFor="profile-description" className="text-text-secondary text-xs font-medium">
+            Description
+          </label>
+          <textarea
+            id="profile-description"
+            value={draft.description}
+            onChange={(e) => {
+              patch("description", e.target.value);
+            }}
+            placeholder="Optional description..."
+            rows={3}
+            className="border-border bg-bg-tertiary text-text-primary placeholder-text-muted focus:border-border-active rounded-md border px-2.5 py-1.5 text-xs transition-colors outline-none"
+          />
+        </div>
+
+        {!isNew ? (
+          <div className="flex justify-end pt-1">
+            <Button variant="danger" onClick={() => void handleDelete()} className="gap-1">
+              <Trash2 size={12} />
+              Delete
+            </Button>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+// ─── Profiles View ──────────────────────────────────────────────────────────
+
+export function ProfilesView() {
+  const { profiles, activeProfileId, loading, editingId, load, switchProfile, setEditing } =
+    useProfilesStore();
+  const [newProfile, setNewProfile] = useState<Profile | null>(null);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const profileList = useMemo(
+    () => Object.values(profiles).sort((a, b) => a.name.localeCompare(b.name)),
+    [profiles],
+  );
+
+  // Editor for new profile
+  if (newProfile) {
+    return (
+      <ProfileEditor
+        initial={newProfile}
+        isNew
+        onBack={() => {
+          setNewProfile(null);
+        }}
+      />
+    );
+  }
+
+  // Editor for existing profile
+  if (editingId) {
+    const profile = profiles[editingId];
+    if (profile) {
+      return (
+        <ProfileEditor
+          key={editingId}
+          initial={profile}
+          isNew={false}
+          onBack={() => {
+            setEditing(null);
+          }}
+        />
+      );
+    }
+  }
+
+  // List view
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <h2 className="text-text-primary text-sm font-semibold">Profiles</h2>
+        <Button
+          variant="primary"
+          onClick={() => {
+            setNewProfile(createNewProfile());
+          }}
+          className="gap-1"
+        >
+          <Plus size={12} />
+          New
+        </Button>
+      </div>
+
+      {loading ? (
+        <p className="text-text-muted py-4 text-center text-xs">Loading...</p>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          {/* No Profile option */}
+          <Card onClick={() => void switchProfile(null)}>
+            <div className="flex items-center gap-2">
+              <span
+                className={`h-2 w-2 shrink-0 rounded-full ${
+                  activeProfileId === null ? "bg-active" : "bg-text-muted"
+                }`}
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-text-primary truncate text-xs font-medium">
+                  No Profile (all items)
+                </p>
+                <p className="text-text-muted text-[10px]">
+                  Show all scripts, shortcuts, and rules
+                </p>
+              </div>
+              {activeProfileId === null ? (
+                <span className="bg-active-dim text-active flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium">
+                  <Check size={10} />
+                  Active
+                </span>
+              ) : (
+                <Button
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void switchProfile(null);
+                  }}
+                >
+                  Use
+                </Button>
+              )}
+            </div>
+          </Card>
+
+          {profileList.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-6 text-center">
+              <Users size={28} className="text-text-muted" />
+              <p className="text-text-muted text-xs">No custom profiles yet</p>
+              <p className="text-text-muted text-[10px]">
+                Create profiles to organize automations by context
+              </p>
+            </div>
+          ) : (
+            profileList.map((profile) => {
+              const isActive = activeProfileId === profile.id;
+              return (
+                <Card
+                  key={profile.id}
+                  onClick={() => {
+                    setEditing(profile.id);
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`h-2 w-2 shrink-0 rounded-full ${
+                        isActive ? "bg-active" : "bg-text-muted"
+                      }`}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-text-primary truncate text-xs font-medium">
+                        {profile.name || "Untitled"}
+                      </p>
+                      {profile.description ? (
+                        <p className="text-text-muted truncate text-[10px]">
+                          {profile.description}
+                        </p>
+                      ) : null}
+                    </div>
+                    {isActive ? (
+                      <span className="bg-active-dim text-active flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium">
+                        <Check size={10} />
+                        Active
+                      </span>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void switchProfile(profile.id);
+                        }}
+                      >
+                        Use
+                      </Button>
+                    )}
+                  </div>
+                </Card>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
