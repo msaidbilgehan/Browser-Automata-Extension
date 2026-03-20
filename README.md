@@ -58,7 +58,7 @@ The goal is to be the single extension that replaces a collection of single-purp
 ### Core Engine
 
 | Feature | Description |
-|---------|-------------|
+| --------- | ------------- |
 | **Script Execution** | Run JavaScript on any page with triggers: page load, manual, shortcut, event, or schedule. Execute in isolated or main world. |
 | **Keyboard Shortcuts** | Bind any key combination to actions — click, focus, navigate, run a script, or trigger a flow. Supports chord combos (e.g., `g` then `i` for GitHub Issues). |
 | **CSS Injection** | Inject custom stylesheets scoped to domains or URL patterns. Inject at `document_start` or `document_idle`. |
@@ -68,7 +68,7 @@ The goal is to be the single extension that replaces a collection of single-purp
 ### Automation & Intelligence
 
 | Feature | Description |
-|---------|-------------|
+| --------- | ------------- |
 | **Flow Builder** | Chain actions into multi-step flows with conditions, loops, waits, and cross-tab navigation. |
 | **Action Recorder** | Record click, type, and scroll sequences on a page, then replay or convert to scripts. |
 | **Element Picker** | Visually select page elements to auto-generate CSS selectors. |
@@ -81,7 +81,7 @@ The goal is to be the single extension that replaces a collection of single-purp
 ### Developer Experience
 
 | Feature | Description |
-|---------|-------------|
+| --------- | ------------- |
 | **Inline Code Editor** | CodeMirror 6 editor with syntax highlighting, autocomplete, and linting — right in the popup. |
 | **TypeScript Support** | Write scripts in TypeScript; they are transpiled on save. |
 | **Shared Libraries** | Create reusable code modules and import them with `@use()` syntax. |
@@ -92,7 +92,7 @@ The goal is to be the single extension that replaces a collection of single-purp
 ### Resilience
 
 | Feature | Description |
-|---------|-------------|
+| --------- | ------------- |
 | **Selector Fallback** | Provides a try-list of alternative selectors when the primary one breaks. |
 | **Smart Wait** | Detects SPA route changes, network idle, and framework renders (React, Vue) before executing. |
 | **Retry Policies** | Configurable exponential backoff retry on script failures. |
@@ -101,7 +101,7 @@ The goal is to be the single extension that replaces a collection of single-purp
 ### Management
 
 | Feature | Description |
-|---------|-------------|
+| --------- | ------------- |
 | **Profiles** | Group automations into switchable contexts (e.g., work vs. personal). |
 | **Import / Export** | Full JSON backup and restore with merge strategies. |
 | **Global Kill Switch** | Instantly disable all automations from the popup header. |
@@ -260,7 +260,7 @@ Then reference it in any script with `@use(dom-helpers)`.
 Define variables in the **Variables** tab:
 
 | Variable | Value | Secret |
-|----------|-------|--------|
+| ---------- | ------- | -------- |
 | `API_KEY` | `sk-abc123...` | Yes |
 | `BASE_URL` | `https://api.example.com` | No |
 
@@ -281,7 +281,7 @@ Secret values are masked in the UI and logs.
 Define an extraction rule for a product listing page:
 
 | Field | Selector | Attribute | Multiple |
-|-------|----------|-----------|----------|
+| ------- | ---------- | ----------- | ---------- |
 | `title` | `.product-card h2` | `textContent` | Yes |
 | `price` | `.product-card .price` | `textContent` | Yes |
 | `image` | `.product-card img` | `src` | Yes |
@@ -397,7 +397,7 @@ All entities share a common `EntityMeta` base (timestamps, IDs) and are stored i
 ## Tech Stack
 
 | Layer | Technology | Why |
-|-------|-----------|-----|
+| ------- | ----------- | ----- |
 | **Language** | TypeScript 5.7 (strict) | Full type safety across all extension contexts |
 | **UI Framework** | React 18 | Fast mount/unmount lifecycle fits popup constraints |
 | **Styling** | Tailwind CSS 4 | Utility-first, dark-theme-optimized, minimal CSS output |
@@ -485,7 +485,7 @@ browser-automata/
 ### Commands
 
 | Command | Description |
-|---------|-------------|
+| --------- | ------------- |
 | `npm run dev` | Start dev server with HMR (port 5173) |
 | `npm run build` | Production build → `dist/` |
 | `npm run preview` | Serve the production build locally |
@@ -500,7 +500,7 @@ browser-automata/
 The extension requests the following permissions:
 
 | Permission | Purpose |
-|-----------|---------|
+| ----------- | --------- |
 | `storage` | Persist all automation entities and settings |
 | `activeTab` | Access the current tab for script execution |
 | `scripting` | Inject scripts and CSS into web pages |
