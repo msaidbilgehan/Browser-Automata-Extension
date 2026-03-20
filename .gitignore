@@ -27,8 +27,11 @@ Thumbs.db
 # Test coverage
 coverage/
 
-# TypeScript
+# TypeScript build artifacts
 *.tsbuildinfo
+src/**/*.js
+src/**/*.d.ts
+!src/vite-env.d.ts
 
 # CRXJS
 crx/
