@@ -1,0 +1,183 @@
+{
+  "_format": "browser-automata-export",
+  "_schemaVersion": 1,
+  "_exportedAt": "2026-03-20T20:21:57.816Z",
+  "_includesSecrets": false,
+  "shortcuts": [
+    {
+      "action": {
+        "selector": "like-button-view-model.ytLikeButtonViewModelHost > toggle-button-view-model > button-view-model.ytSpecButtonViewModelHost > label.yt-spec-button-shape-with-label",
+        "type": "click"
+      },
+      "enabled": true,
+      "id": "837a0504-3bbe-406d-81ad-7e6632a25c07",
+      "keyCombo": {
+        "altKey": false,
+        "ctrlKey": false,
+        "key": "l",
+        "metaKey": false,
+        "shiftKey": false
+      },
+      "meta": {
+        "createdAt": "2026-03-20T13:09:30.459Z",
+        "updatedAt": "2026-03-20T19:29:00.230Z"
+      },
+      "name": "YT - Shorts Like",
+      "profileId": null,
+      "scope": {
+        "type": "glob",
+        "value": "*.youtube.com/shorts/*"
+      }
+    },
+    {
+      "action": {
+        "selector": "button.fullscreen-icon",
+        "type": "click"
+      },
+      "enabled": true,
+      "id": "878706d3-3ebf-423f-95c2-eb342eac9078",
+      "keyCombo": {
+        "altKey": false,
+        "ctrlKey": false,
+        "key": "f",
+        "metaKey": false,
+        "shiftKey": false
+      },
+      "meta": {
+        "createdAt": "2026-03-20T19:15:41.150Z",
+        "updatedAt": "2026-03-20T19:16:06.761Z"
+      },
+      "name": "OA - Fullscreen",
+      "profileId": null,
+      "scope": {
+        "type": "exact",
+        "value": "openani.me"
+      }
+    },
+    {
+      "action": {
+        "selector": "button.next-icon",
+        "type": "click"
+      },
+      "enabled": true,
+      "id": "88beaf69-b536-4a92-a0d3-7efdce45948f",
+      "keyCombo": {
+        "altKey": false,
+        "ctrlKey": false,
+        "key": "n",
+        "metaKey": false,
+        "shiftKey": false
+      },
+      "meta": {
+        "createdAt": "2026-03-20T19:04:17.000Z",
+        "updatedAt": "2026-03-20T19:12:42.903Z"
+      },
+      "name": "OA - Next",
+      "profileId": null,
+      "scope": {
+        "type": "exact",
+        "value": "openani.me"
+      }
+    },
+    {
+      "action": {
+        "selector": "div.skip-button > button.button",
+        "type": "click"
+      },
+      "enabled": true,
+      "id": "9b272688-a172-464b-9d96-0c7830232aa0",
+      "keyCombo": {
+        "altKey": false,
+        "ctrlKey": false,
+        "key": "s",
+        "metaKey": false,
+        "shiftKey": false
+      },
+      "meta": {
+        "createdAt": "2026-03-20T19:08:48.039Z",
+        "updatedAt": "2026-03-20T19:12:48.712Z"
+      },
+      "name": "OA - Skip",
+      "profileId": null,
+      "scope": {
+        "type": "exact",
+        "value": "openani.me"
+      }
+    },
+    {
+      "action": {
+        "selector": "button.previous-icon",
+        "type": "click"
+      },
+      "enabled": true,
+      "id": "d208b55d-483e-47ac-8c2f-7387c3e4a64f",
+      "keyCombo": {
+        "altKey": false,
+        "ctrlKey": false,
+        "key": "b",
+        "metaKey": false,
+        "shiftKey": false
+      },
+      "meta": {
+        "createdAt": "2026-03-20T19:06:28.603Z",
+        "updatedAt": "2026-03-20T19:12:54.728Z"
+      },
+      "name": "OA - Previous",
+      "profileId": null,
+      "scope": {
+        "type": "exact",
+        "value": "openani.me"
+      }
+    },
+    {
+      "action": {
+        "selector": "div.skip-button > button.button",
+        "type": "click"
+      },
+      "enabled": true,
+      "id": "d6202b17-2520-413a-9abe-73185fa5f6e8",
+      "keyCombo": {
+        "altKey": false,
+        "ctrlKey": false,
+        "key": "s",
+        "metaKey": false,
+        "shiftKey": false
+      },
+      "meta": {
+        "createdAt": "2026-03-20T19:09:40.197Z",
+        "updatedAt": "2026-03-20T19:12:17.561Z"
+      },
+      "name": "test",
+      "profileId": null,
+      "scope": {
+        "type": "exact",
+        "value": "openani.me"
+      }
+    },
+    {
+      "action": {
+        "selector": "dislike-button-view-model.ytDislikeButtonViewModelHost > toggle-button-view-model > button-view-model.ytSpecButtonViewModelHost > label.yt-spec-button-shape-with-label",
+        "type": "click"
+      },
+      "enabled": true,
+      "id": "ff2e5e16-fd98-4809-b3fb-96d3dff52188",
+      "keyCombo": {
+        "altKey": false,
+        "ctrlKey": false,
+        "key": "ş",
+        "metaKey": false,
+        "shiftKey": false
+      },
+      "meta": {
+        "createdAt": "2026-03-20T18:37:50.153Z",
+        "updatedAt": "2026-03-20T19:29:25.693Z"
+      },
+      "name": "YT - Shorts Dislike",
+      "profileId": null,
+      "scope": {
+        "type": "glob",
+        "value": "*.youtube.com/shorts/*"
+      }
+    }
+  ]
+}
