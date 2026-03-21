@@ -1,2 +1,15 @@
 @import "tailwindcss";
 @import "../shared/theme.css";
+
+/* Prevent phantom scrollbars on the extension popup */
+html,
+body,
+#root {
+  overflow: hidden;
+  scrollbar-width: none;
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+#root::-webkit-scrollbar {
+  display: none;
+}

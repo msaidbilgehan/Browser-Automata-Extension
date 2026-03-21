@@ -85,4 +85,3 @@ All notable changes to Browser Automata are documented in this file.
 - Message type guard and discriminated union validation tests.
 - URL pattern matching and specificity ranking tests.
 - Activity log handler tests.
-

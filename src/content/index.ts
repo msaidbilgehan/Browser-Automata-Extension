@@ -78,7 +78,7 @@ function scheduleRetryIfNeeded(): void {
     console.debug(
       `[Browser Automata] No shortcuts received yet, retrying CONTENT_READY (attempt ${contentReadyRetries})`,
     );
-    chrome.runtime.sendMessage({ type: "CONTENT_READY", url: location.href }).catch(() => {
+    chrome.runtime.sendMessage({ type: "CONTENT_READY", url: location.href, isRetry: true }).catch(() => {
       // Service worker may not be ready yet
     });
     scheduleRetryIfNeeded();

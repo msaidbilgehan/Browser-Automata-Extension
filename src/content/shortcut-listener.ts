@@ -193,6 +193,7 @@ function executeShortcutAction(shortcut: Shortcut): void {
     case "inline_script":
     case "navigate":
     case "flow":
+    case "extraction":
       // Dispatch to service worker
       notifyServiceWorker(shortcut.id);
       break;

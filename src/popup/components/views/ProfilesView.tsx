@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Users, Plus, ArrowLeft, Save, Trash2, Check } from "lucide-react";
+import { Users, Plus, ArrowLeft, Save, Trash2, Check, Undo2 } from "lucide-react";
 import { create } from "zustand";
 import type { Profile, EntityId } from "@/shared/types/entities";
 import { localStore, onStorageChange } from "@/shared/storage";
 import { sendToBackground } from "@/shared/messaging";
 import { generateId, now } from "@/shared/utils";
+import { useEditorDraft } from "../../hooks/use-editor-draft";
+import { removeDraft, loadAllDrafts } from "../../stores/editor-session";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Input } from "../ui/Input";
@@ -99,11 +101,17 @@ function ProfileEditor({
   onBack: () => void;
 }) {
   const { save, remove } = useProfilesStore();
-  const [draft, setDraft] = useState<Profile>(initial);
+  const { draft, setDraft, isDirty, commitDraft, discardDraft } = useEditorDraft<Profile>({
+    tab: "profiles",
+    entityId: initial.id,
+    isNew,
+    initial,
+    saved: isNew ? null : initial,
+  });
 
   const patch = useCallback(<K extends keyof Profile>(key: K, value: Profile[K]) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
-  }, []);
+  }, [setDraft]);
 
   const handleSave = async () => {
     const updated: Profile = {
@@ -111,12 +119,23 @@ function ProfileEditor({
       meta: { ...draft.meta, updatedAt: now() },
     };
     await save(updated);
+    await commitDraft();
     onBack();
   };
 
   const handleDelete = async () => {
     await remove(draft.id);
+    await removeDraft("profiles", draft.id);
     onBack();
+  };
+
+  const handleDiscard = async () => {
+    if (isNew) {
+      await commitDraft();
+      onBack();
+    } else {
+      await discardDraft();
+    }
   };
 
   return (
@@ -133,6 +152,15 @@ function ProfileEditor({
         <h2 className="text-text-primary flex-1 text-sm font-semibold">
           {isNew ? "New Profile" : "Edit Profile"}
         </h2>
+        {isDirty && (
+          <span className="text-warning text-[10px] font-medium">Unsaved</span>
+        )}
+        {isDirty && (
+          <Button variant="ghost" onClick={() => void handleDiscard()} className="gap-1">
+            <Undo2 size={12} />
+            Discard
+          </Button>
+        )}
         <Button variant="primary" onClick={() => void handleSave()} className="gap-1">
           <Save size={12} />
           Save
@@ -183,13 +211,23 @@ export function ProfilesView() {
   const { profiles, activeProfileId, loading, editingId, load, switchProfile, setEditing } =
     useProfilesStore();
   const [newProfile, setNewProfile] = useState<Profile | null>(null);
+  const [draftIds, setDraftIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (!editingId && !newProfile) {
+      void loadAllDrafts("profiles").then((map) => setDraftIds(new Set(Object.keys(map))));
+    }
+  }, [editingId, newProfile]);
+
   const profileList = useMemo(
-    () => Object.values(profiles).sort((a, b) => a.name.localeCompare(b.name)),
+    () =>
+      Object.values(profiles)
+        .filter((s): s is Profile => s != null && typeof s.name === "string")
+        .sort((a, b) => a.name.localeCompare(b.name)),
     [profiles],
   );
 
@@ -304,9 +342,16 @@ export function ProfilesView() {
                       }`}
                     />
                     <div className="min-w-0 flex-1">
-                      <p className="text-text-primary truncate text-xs font-medium">
-                        {profile.name || "Untitled"}
-                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-text-primary truncate text-xs font-medium">
+                          {profile.name || "Untitled"}
+                        </p>
+                        {draftIds.has(profile.id) && (
+                          <span className="bg-warning/20 text-warning shrink-0 rounded px-1 py-0.5 text-[9px] font-medium">
+                            Draft
+                          </span>
+                        )}
+                      </div>
                       {profile.description ? (
                         <p className="text-text-muted truncate text-[10px]">
                           {profile.description}

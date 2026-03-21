@@ -77,6 +77,7 @@ export function LogView() {
     getScrollElement: () => parentRef.current,
     estimateSize: () => 56,
     overscan: 10,
+    measureElement: (el) => el.getBoundingClientRect().height,
   });
 
   const handleClear = async () => {
@@ -85,7 +86,7 @@ export function LogView() {
   };
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-text-primary text-sm font-semibold">Activity Log</h2>
@@ -149,7 +150,7 @@ export function LogView() {
           <p className="text-text-muted text-xs">No activity yet</p>
         </div>
       ) : (
-        <div ref={parentRef} className="max-h-[380px] overflow-y-auto">
+        <div ref={parentRef} className="min-h-0 flex-1 overflow-y-auto">
           <div
             style={{
               height: `${String(virtualizer.getTotalSize())}px`,
@@ -164,17 +165,23 @@ export function LogView() {
               return (
                 <div
                   key={virtualItem.key}
+                  ref={virtualizer.measureElement}
+                  data-index={virtualItem.index}
                   style={{
                     position: "absolute",
                     top: 0,
                     left: 0,
                     width: "100%",
-                    height: `${String(virtualItem.size)}px`,
                     transform: `translateY(${String(virtualItem.start)}px)`,
                   }}
                   className="px-0.5 py-0.5"
                 >
-                  <LogEntry entry={entry} />
+                  <LogEntry
+                    entry={entry}
+                    onToggle={() => virtualizer.measureElement(
+                      parentRef.current?.querySelector(`[data-index="${String(virtualItem.index)}"]`) as HTMLElement | null
+                    )}
+                  />
                 </div>
               );
             })}
@@ -185,7 +192,7 @@ export function LogView() {
   );
 }
 
-function LogEntry({ entry }: { entry: ActivityLogEntry }) {
+function LogEntry({ entry, onToggle }: { entry: ActivityLogEntry; onToggle?: () => void }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -193,6 +200,8 @@ function LogEntry({ entry }: { entry: ActivityLogEntry }) {
       className="border-border bg-bg-secondary flex cursor-pointer flex-col gap-0.5 rounded border px-2 py-1.5"
       onClick={() => {
         setExpanded(!expanded);
+        // Re-measure after DOM update so virtualizer adjusts row height
+        requestAnimationFrame(() => onToggle?.());
       }}
     >
       <div className="flex items-center justify-between">

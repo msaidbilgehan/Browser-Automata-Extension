@@ -74,16 +74,16 @@ export function App() {
 
   if (!initialized && loading) {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="fixed inset-0 flex items-center justify-center">
         <p className="text-text-muted text-xs">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen flex-col">
+    <div className="fixed inset-0 flex flex-col">
       <Header />
-      <main className="flex-1 overflow-y-auto p-3">
+      <main className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3">
         <Suspense
           fallback={
             <div className="flex items-center justify-center p-4">

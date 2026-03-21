@@ -18,8 +18,9 @@ interface SelectorInputProps {
   label?: string;
   placeholder?: string;
   /** Called just before the element picker is activated. Use this to persist
-   *  editor draft state so it survives the popup closing. */
-  onPickStart?: (() => void) | undefined;
+   *  editor draft state so it survives the popup closing.
+   *  May return a Promise — the picker will wait for it to settle. */
+  onPickStart?: (() => void | Promise<void>) | undefined;
   /** Compact layout for inline field rows (e.g. ExtractionView) */
   compact?: boolean;
 }
@@ -54,9 +55,14 @@ export function SelectorInput({
   const [matchCount, setMatchCount] = useState<number | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
+  // Holds the most recently picked selector so we can re-apply it if
+  // useEditorDraft hydration overwrites the value after we first set it.
+  const pendingPickRef = useRef<PickedElementData | null>(null);
+
   /** Process a picked element result */
   const handlePickResult = useCallback(
     (picked: PickedElementData) => {
+      pendingPickRef.current = picked;
       onChange(picked.selector);
       setAlternatives(picked.alternatives ?? []);
       setPicking(false);
@@ -74,6 +80,21 @@ export function SelectorInput({
       }
     });
   }, [pickId, handlePickResult]);
+
+  // Guard against draft-hydration overwriting the picked value.
+  // useEditorDraft restores the draft asynchronously, which can overwrite the
+  // selector we just set from the pick result. When that happens, re-apply
+  // the pending pick so the new value sticks.
+  useEffect(() => {
+    const pending = pendingPickRef.current;
+    if (pending === null) return;
+    if (value !== pending.selector) {
+      onChange(pending.selector);
+    } else {
+      // Value matches — pick was successfully applied, clear the pending ref
+      pendingPickRef.current = null;
+    }
+  }, [value, onChange]);
 
   // Listen for storage changes while the popup is open (covers the edge case
   // where the user picks without the popup closing, e.g. on a secondary monitor)
@@ -153,7 +174,10 @@ export function SelectorInput({
 
   const handlePick = useCallback(async () => {
     if (picking) return;
-    onPickStart?.();
+    // Await the draft save so it completes before the popup can close.
+    if (onPickStart) {
+      await onPickStart();
+    }
     setPicking(true);
     try {
       await sendToBackground({ type: "PICK_ELEMENT_POPUP", pickId });

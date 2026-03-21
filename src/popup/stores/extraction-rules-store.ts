@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { ExtractionRule, EntityId } from "@/shared/types/entities";
+import type { ExtractionRunResponse } from "@/shared/types/messages";
 import { sendToBackground } from "@/shared/messaging";
 import { localStore, onStorageChange } from "@/shared/storage";
 
@@ -7,12 +8,14 @@ interface ExtractionRulesState {
   extractionRules: Record<string, ExtractionRule>;
   loading: boolean;
   editingId: EntityId | null;
+  lastResult: ExtractionRunResponse | null;
 
   load: () => Promise<void>;
   save: (rule: ExtractionRule) => Promise<void>;
   remove: (id: EntityId) => Promise<void>;
-  runNow: (id: EntityId) => Promise<void>;
+  runNow: (id: EntityId) => Promise<ExtractionRunResponse>;
   setEditing: (id: EntityId | null) => void;
+  clearResult: () => void;
 }
 
 export const useExtractionRulesStore = create<ExtractionRulesState>((set) => {
@@ -24,6 +27,7 @@ export const useExtractionRulesStore = create<ExtractionRulesState>((set) => {
     extractionRules: {},
     loading: false,
     editingId: null,
+    lastResult: null,
 
     load: async () => {
       set({ loading: true });
@@ -52,11 +56,19 @@ export const useExtractionRulesStore = create<ExtractionRulesState>((set) => {
     },
 
     runNow: async (id) => {
-      await sendToBackground({ type: "EXTRACTION_RUN_NOW", ruleId: id });
+      const raw = await sendToBackground({ type: "EXTRACTION_RUN_NOW", ruleId: id });
+      // Guard against undefined responses (service worker messaging edge cases)
+      const result = raw ?? { ok: false, error: "No response from background" };
+      set({ lastResult: result });
+      return result;
     },
 
     setEditing: (id) => {
       set({ editingId: id });
+    },
+
+    clearResult: () => {
+      set({ lastResult: null });
     },
   };
 });

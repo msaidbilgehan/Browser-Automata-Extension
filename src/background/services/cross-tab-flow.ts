@@ -1,3 +1,5 @@
+import { normalizeUrl } from "@/shared/utils";
+
 /**
  * Create a new tab, wait for it to finish loading, inject a script, and
  * return the tab ID together with the execution result.
@@ -6,7 +8,7 @@ export async function openTabAndExecute(
   url: string,
   scriptCode: string,
 ): Promise<{ tabId: number; result: unknown }> {
-  const tab = await chrome.tabs.create({ url, active: false });
+  const tab = await chrome.tabs.create({ url: normalizeUrl(url), active: false });
   const tabId = tab.id;
   if (tabId === undefined) {
     throw new Error("Failed to create tab: no tab ID returned");
