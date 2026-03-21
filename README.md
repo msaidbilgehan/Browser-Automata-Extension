@@ -603,4 +603,4 @@ npm run test         # All tests pass
 
 This project is private and [licensed](LICENSE) for distribution.
 
-Copyright (c) 2021, Muhammed Said Bilgehan. All rights reserved.
+Copyright (c) 2026, Muhammed Said Bilgehan. All rights reserved.
