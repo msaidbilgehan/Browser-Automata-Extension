@@ -1,10 +1,13 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Keyboard, Plus, ArrowLeft, ArrowRight, Save, Trash2 } from "lucide-react";
+import { Keyboard, Plus, ArrowLeft, ArrowRight, Save, Trash2, Undo2, Copy } from "lucide-react";
 import { SectionExportImport } from "../ui/SectionExportImport";
-import type { Shortcut, ShortcutAction, KeyCombo, EntityId } from "@/shared/types/entities";
+import type { Shortcut, ShortcutAction, KeyCombo, EntityId, Flow } from "@/shared/types/entities";
 import { generateId, now } from "@/shared/utils";
+import { localStore } from "@/shared/storage";
 import { useShortcutsStore } from "../../stores/shortcuts-store";
 import { useScriptsStore } from "../../stores/scripts-store";
+import { useExtractionRulesStore } from "../../stores/extraction-rules-store";
+import { useEditorDraft } from "../../hooks/use-editor-draft";
 import { Toggle } from "../ui/Toggle";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
@@ -15,7 +18,8 @@ import { KeyCaptureInput, formatKeyCombo } from "../editor/KeyCaptureInput";
 import { UrlPatternInput } from "../editor/UrlPatternInput";
 import { SelectorInput } from "../editor/SelectorInput";
 import { jsEditorExtensions } from "@/lib/codemirror/setup";
-import { saveEditorDraft, loadEditorDraft } from "../../stores/editor-session";
+import { saveEditorDraft, loadEditorDraft, clearEditorDraft, removeDraft, loadAllDrafts } from "../../stores/editor-session";
+import { useKeyComboConflicts } from "../../hooks/use-key-combo-conflicts";
 
 function createNewShortcut(): Shortcut {
   const timestamp = now();
@@ -44,7 +48,9 @@ function actionDescription(action: ShortcutAction): string {
     case "navigate":
       return `Go to ${action.url || "..."}`;
     case "flow":
-      return "Run flow";
+      return `Run flow`;
+    case "extraction":
+      return "Run extraction";
   }
 }
 
@@ -58,6 +64,8 @@ const ACTION_TYPE_OPTIONS = [
   { value: "inline_script", label: "Inline Script" },
   { value: "focus", label: "Focus Element" },
   { value: "navigate", label: "Navigate" },
+  { value: "flow", label: "Run Flow" },
+  { value: "extraction", label: "Run Extraction" },
 ];
 
 function ShortcutEditor({
@@ -71,10 +79,20 @@ function ShortcutEditor({
 }) {
   const { save, remove } = useShortcutsStore();
   const { scripts } = useScriptsStore();
-  const [draft, setDraft] = useState<Shortcut>(initial);
+  const { extractionRules } = useExtractionRulesStore();
+  const { draft, setDraft, isDirty, commitDraft, discardDraft } = useEditorDraft<Shortcut>({
+    tab: "shortcuts",
+    entityId: initial.id,
+    isNew,
+    initial,
+    saved: isNew ? null : initial,
+  });
 
-  const handlePickStart = useCallback(() => {
-    void saveEditorDraft({
+  const comboForConflict = isKeyCombo(draft.keyCombo) ? draft.keyCombo : null;
+  const keyConflicts = useKeyComboConflicts(comboForConflict, draft.scope, draft.id);
+
+  const handlePickStart = useCallback(async () => {
+    await saveEditorDraft({
       tab: "shortcuts",
       isNew,
       editingId: isNew ? undefined : draft.id,
@@ -93,9 +111,31 @@ function ShortcutEditor({
     [scripts],
   );
 
+  const extractionRuleOptions = useMemo(
+    () =>
+      Object.values(extractionRules).map((r) => ({
+        value: r.id,
+        label: r.name || "Untitled",
+      })),
+    [extractionRules],
+  );
+
+  const [flowOptions, setFlowOptions] = useState<{ value: string; label: string }[]>([]);
+  useEffect(() => {
+    void localStore.get("flows").then((data) => {
+      const flows = data ?? {};
+      setFlowOptions(
+        Object.values(flows)
+          .filter((f): f is Flow => f != null && typeof f.name === "string")
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map((f) => ({ value: f.id, label: f.name || "Untitled" })),
+      );
+    });
+  }, []);
+
   const patch = useCallback(<K extends keyof Shortcut>(key: K, value: Shortcut[K]) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
-  }, []);
+  }, [setDraft]);
 
   const setActionType = (type: ShortcutAction["type"]) => {
     let action: ShortcutAction;
@@ -118,6 +158,18 @@ function ShortcutEditor({
       case "navigate":
         action = { type: "navigate", url: "" };
         break;
+      case "flow":
+        action = {
+          type: "flow",
+          flowId: (flowOptions[0]?.value ?? "") as EntityId,
+        };
+        break;
+      case "extraction":
+        action = {
+          type: "extraction",
+          extractionRuleId: (extractionRuleOptions[0]?.value ?? "") as EntityId,
+        };
+        break;
       default:
         return;
     }
@@ -130,12 +182,25 @@ function ShortcutEditor({
       meta: { ...draft.meta, updatedAt: now() },
     };
     await save(updated);
+    await commitDraft();
+    void clearEditorDraft();
     onBack();
   };
 
   const handleDelete = async () => {
     await remove(draft.id);
+    await removeDraft("shortcuts", draft.id);
+    void clearEditorDraft();
     onBack();
+  };
+
+  const handleDiscard = async () => {
+    if (isNew) {
+      await commitDraft();
+      onBack();
+    } else {
+      await discardDraft();
+    }
   };
 
   return (
@@ -153,6 +218,15 @@ function ShortcutEditor({
         <h2 className="text-text-primary flex-1 text-sm font-semibold">
           {isNew ? "New Shortcut" : "Edit Shortcut"}
         </h2>
+        {isDirty && (
+          <span className="text-warning text-[10px] font-medium">Unsaved</span>
+        )}
+        {isDirty && (
+          <Button variant="ghost" onClick={() => void handleDiscard()} className="gap-1">
+            <Undo2 size={12} />
+            Discard
+          </Button>
+        )}
         <Button variant="primary" onClick={() => void handleSave()} className="gap-1">
           <Save size={12} />
           Save
@@ -177,6 +251,15 @@ function ShortcutEditor({
             patch("keyCombo", combo);
           }}
         />
+        {keyConflicts.length > 0 && (
+          <div className="flex flex-col gap-0.5">
+            {keyConflicts.map((w, i) => (
+              <p key={i} className={`text-[10px] font-medium ${w.type === "browser" ? "text-warning" : "text-error"}`}>
+                {w.message}
+              </p>
+            ))}
+          </div>
+        )}
 
         <Select
           label="Action Type"
@@ -243,6 +326,42 @@ function ShortcutEditor({
           />
         )}
 
+        {draft.action.type === "flow" && (
+          <Select
+            label="Flow"
+            options={
+              flowOptions.length > 0
+                ? flowOptions
+                : [{ value: "", label: "No flows available" }]
+            }
+            value={draft.action.flowId}
+            onChange={(e) => {
+              patch("action", {
+                type: "flow",
+                flowId: e.target.value as EntityId,
+              });
+            }}
+          />
+        )}
+
+        {draft.action.type === "extraction" && (
+          <Select
+            label="Extraction Rule"
+            options={
+              extractionRuleOptions.length > 0
+                ? extractionRuleOptions
+                : [{ value: "", label: "No extraction rules available" }]
+            }
+            value={draft.action.extractionRuleId}
+            onChange={(e) => {
+              patch("action", {
+                type: "extraction",
+                extractionRuleId: e.target.value as EntityId,
+              });
+            }}
+          />
+        )}
+
         <UrlPatternInput
           label="Scope"
           value={draft.scope}
@@ -275,18 +394,25 @@ function ShortcutEditor({
 export function ShortcutsView() {
   const { shortcuts, loading, editingId, load, toggle, setEditing } = useShortcutsStore();
   const [newShortcut, setNewShortcut] = useState<Shortcut | null>(null);
-  // Holds an in-progress draft restored from session (unsaved edits to an existing shortcut)
-  const [restoredDraft, setRestoredDraft] = useState<Shortcut | null>(null);
+  const [draftIds, setDraftIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  // Also load scripts so the editor can show script options
+  useEffect(() => {
+    if (!editingId && !newShortcut) {
+      void loadAllDrafts("shortcuts").then((map) => setDraftIds(new Set(Object.keys(map))));
+    }
+  }, [editingId, newShortcut]);
+
+  // Also load scripts and extraction rules so the editor can show options
   const scriptsLoad = useScriptsStore((s) => s.load);
+  const extractionRulesLoad = useExtractionRulesStore((s) => s.load);
   useEffect(() => {
     void scriptsLoad();
-  }, [scriptsLoad]);
+    void extractionRulesLoad();
+  }, [scriptsLoad, extractionRulesLoad]);
 
   // Restore editor draft from session (e.g. after element picking closed the popup)
   useEffect(() => {
@@ -297,7 +423,6 @@ export function ShortcutsView() {
         setNewShortcut(draft);
       } else if (ctx.editingId) {
         setEditing(ctx.editingId as EntityId);
-        setRestoredDraft(draft);
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -323,6 +448,7 @@ export function ShortcutsView() {
         isNew
         onBack={() => {
           setNewShortcut(null);
+          void clearEditorDraft();
         }}
       />
     );
@@ -332,16 +458,14 @@ export function ShortcutsView() {
   if (editingId) {
     const shortcut = shortcuts[editingId];
     if (shortcut) {
-      // Use restored draft (unsaved edits) if available, otherwise the saved version
-      const initial = restoredDraft?.id === editingId ? restoredDraft : shortcut;
       return (
         <ShortcutEditor
           key={editingId}
-          initial={initial}
+          initial={shortcut}
           isNew={false}
           onBack={() => {
             setEditing(null);
-            setRestoredDraft(null);
+            void clearEditorDraft();
           }}
         />
       );
@@ -402,11 +526,34 @@ export function ShortcutsView() {
                         <span className="text-text-secondary truncate">
                           {actionDescription(shortcut.action)}
                         </span>
+                        {draftIds.has(shortcut.id) && (
+                          <span className="bg-warning/20 text-warning shrink-0 rounded px-1 py-0.5 text-[9px] font-medium">
+                            Draft
+                          </span>
+                        )}
                       </div>
                       {shortcut.name && (
                         <p className="text-text-muted truncate text-[10px]">{shortcut.name}</p>
                       )}
                     </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const ts = now();
+                        setNewShortcut({
+                          ...shortcut,
+                          id: generateId(),
+                          name: `${shortcut.name || "Untitled"} (Copy)`,
+                          keyCombo: { key: "", ctrlKey: false, shiftKey: false, altKey: false, metaKey: false },
+                          meta: { createdAt: ts, updatedAt: ts },
+                        });
+                      }}
+                      className="text-text-muted hover:bg-bg-tertiary hover:text-text-primary rounded p-1 transition-colors"
+                      aria-label="Duplicate shortcut"
+                    >
+                      <Copy size={12} />
+                    </button>
                     <div
                       onClick={(e) => {
                         e.stopPropagation();

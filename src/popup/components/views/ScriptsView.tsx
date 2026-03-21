@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { FileCode, Plus, ArrowLeft, Play, Save, Trash2 } from "lucide-react";
+import { FileCode, Plus, ArrowLeft, Play, Save, Trash2, Undo2, Copy } from "lucide-react";
 import { SectionExportImport } from "../ui/SectionExportImport";
 import type { Script, UrlPattern } from "@/shared/types/entities";
 import { generateId, now } from "@/shared/utils";
 import { useScriptsStore } from "../../stores/scripts-store";
+import { useEditorDraft } from "../../hooks/use-editor-draft";
+import { removeDraft, loadAllDrafts } from "../../stores/editor-session";
 import { Toggle } from "../ui/Toggle";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
@@ -62,13 +64,19 @@ function ScriptEditor({
   onBack: () => void;
 }) {
   const { save, remove, runNow } = useScriptsStore();
-  const [draft, setDraft] = useState<Script>(initial);
+  const { draft, setDraft, isDirty, commitDraft, discardDraft } = useEditorDraft<Script>({
+    tab: "scripts",
+    entityId: initial.id,
+    isNew,
+    initial,
+    saved: isNew ? null : initial,
+  });
 
   const extensions = useMemo(() => jsEditorExtensions(), []);
 
   const patch = useCallback(<K extends keyof Script>(key: K, value: Script[K]) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
-  }, []);
+  }, [setDraft]);
 
   const handleSave = async () => {
     const updated: Script = {
@@ -76,16 +84,27 @@ function ScriptEditor({
       meta: { ...draft.meta, updatedAt: now() },
     };
     await save(updated);
+    await commitDraft();
     onBack();
   };
 
   const handleDelete = async () => {
     await remove(draft.id);
+    await removeDraft("scripts", draft.id);
     onBack();
   };
 
   const handleRun = async () => {
     await runNow(draft.id);
+  };
+
+  const handleDiscard = async () => {
+    if (isNew) {
+      await commitDraft();
+      onBack();
+    } else {
+      await discardDraft();
+    }
   };
 
   return (
@@ -103,6 +122,15 @@ function ScriptEditor({
         <h2 className="text-text-primary flex-1 text-sm font-semibold">
           {isNew ? "New Script" : "Edit Script"}
         </h2>
+        {isDirty && (
+          <span className="text-warning text-[10px] font-medium">Unsaved</span>
+        )}
+        {isDirty && (
+          <Button variant="ghost" onClick={() => void handleDiscard()} className="gap-1">
+            <Undo2 size={12} />
+            Discard
+          </Button>
+        )}
         {!isNew && (
           <Button variant="ghost" onClick={() => void handleRun()} className="gap-1">
             <Play size={12} />
@@ -206,13 +234,24 @@ function ScriptEditor({
 export function ScriptsView() {
   const { scripts, loading, editingId, load, toggle, runNow, setEditing } = useScriptsStore();
   const [newScript, setNewScript] = useState<Script | null>(null);
+  const [draftIds, setDraftIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     void load();
   }, [load]);
 
+  // Refresh draft indicators when returning to list view
+  useEffect(() => {
+    if (!editingId && !newScript) {
+      void loadAllDrafts("scripts").then((map) => setDraftIds(new Set(Object.keys(map))));
+    }
+  }, [editingId, newScript]);
+
   const scriptList = useMemo(
-    () => Object.values(scripts).sort((a, b) => a.name.localeCompare(b.name)),
+    () =>
+      Object.values(scripts)
+        .filter((s): s is Script => s != null && typeof s.name === "string")
+        .sort((a, b) => a.name.localeCompare(b.name)),
     [scripts],
   );
 
@@ -290,14 +329,38 @@ export function ScriptsView() {
                   }`}
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="text-text-primary truncate text-xs font-medium">
-                    {script.name || "Untitled"}
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-text-primary truncate text-xs font-medium">
+                      {script.name || "Untitled"}
+                    </p>
+                    {draftIds.has(script.id) && (
+                      <span className="bg-warning/20 text-warning shrink-0 rounded px-1 py-0.5 text-[9px] font-medium">
+                        Draft
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-1.5">
                     <span className="text-text-muted text-[10px]">{scopeLabel(script.scope)}</span>
                     <span className="text-text-muted text-[10px]">{script.trigger}</span>
                   </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const ts = now();
+                    setNewScript({
+                      ...script,
+                      id: generateId(),
+                      name: `${script.name || "Untitled"} (Copy)`,
+                      meta: { ...script.meta, createdAt: ts, updatedAt: ts },
+                    });
+                  }}
+                  className="text-text-muted hover:bg-bg-tertiary hover:text-text-primary rounded p-1 transition-colors"
+                  aria-label="Duplicate script"
+                >
+                  <Copy size={12} />
+                </button>
                 <button
                   type="button"
                   onClick={(e) => {

@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Paintbrush, Plus, ArrowLeft, Save, Trash2 } from "lucide-react";
+import { Paintbrush, Plus, ArrowLeft, Save, Trash2, Undo2, Copy } from "lucide-react";
 import type { CSSRule, UrlPattern } from "@/shared/types/entities";
 import { generateId, now } from "@/shared/utils";
 import { useCSSRulesStore } from "../../stores/css-rules-store";
+import { useEditorDraft } from "../../hooks/use-editor-draft";
+import { removeDraft, loadAllDrafts } from "../../stores/editor-session";
 import { Toggle } from "../ui/Toggle";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
@@ -45,13 +47,19 @@ function CSSRuleEditor({
   onBack: () => void;
 }) {
   const { save, remove } = useCSSRulesStore();
-  const [draft, setDraft] = useState<CSSRule>(initial);
+  const { draft, setDraft, isDirty, commitDraft, discardDraft } = useEditorDraft<CSSRule>({
+    tab: "css-rules",
+    entityId: initial.id,
+    isNew,
+    initial,
+    saved: isNew ? null : initial,
+  });
 
   const extensions = useMemo(() => cssEditorExtensions(), []);
 
   const patch = useCallback(<K extends keyof CSSRule>(key: K, value: CSSRule[K]) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
-  }, []);
+  }, [setDraft]);
 
   const handleSave = async () => {
     const updated: CSSRule = {
@@ -59,12 +67,23 @@ function CSSRuleEditor({
       meta: { ...draft.meta, updatedAt: now() },
     };
     await save(updated);
+    await commitDraft();
     onBack();
   };
 
   const handleDelete = async () => {
     await remove(draft.id);
+    await removeDraft("css-rules", draft.id);
     onBack();
+  };
+
+  const handleDiscard = async () => {
+    if (isNew) {
+      await commitDraft();
+      onBack();
+    } else {
+      await discardDraft();
+    }
   };
 
   return (
@@ -82,6 +101,15 @@ function CSSRuleEditor({
         <h2 className="text-text-primary flex-1 text-sm font-semibold">
           {isNew ? "New CSS Rule" : "Edit CSS Rule"}
         </h2>
+        {isDirty && (
+          <span className="text-warning text-[10px] font-medium">Unsaved</span>
+        )}
+        {isDirty && (
+          <Button variant="ghost" onClick={() => void handleDiscard()} className="gap-1">
+            <Undo2 size={12} />
+            Discard
+          </Button>
+        )}
         <Button variant="primary" onClick={() => void handleSave()} className="gap-1">
           <Save size={12} />
           Save
@@ -152,13 +180,23 @@ function CSSRuleEditor({
 export function CSSRulesView() {
   const { cssRules, loading, editingId, load, save, setEditing } = useCSSRulesStore();
   const [newRule, setNewRule] = useState<CSSRule | null>(null);
+  const [draftIds, setDraftIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (!editingId && !newRule) {
+      void loadAllDrafts("css-rules").then((map) => setDraftIds(new Set(Object.keys(map))));
+    }
+  }, [editingId, newRule]);
+
   const ruleList = useMemo(
-    () => Object.values(cssRules).sort((a, b) => a.name.localeCompare(b.name)),
+    () =>
+      Object.values(cssRules)
+        .filter((s): s is CSSRule => s != null && typeof s.name === "string")
+        .sort((a, b) => a.name.localeCompare(b.name)),
     [cssRules],
   );
 
@@ -235,11 +273,35 @@ export function CSSRulesView() {
             >
               <div className="flex items-center gap-2">
                 <div className="min-w-0 flex-1">
-                  <p className="text-text-primary truncate text-xs font-medium">
-                    {rule.name || "Untitled"}
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-text-primary truncate text-xs font-medium">
+                      {rule.name || "Untitled"}
+                    </p>
+                    {draftIds.has(rule.id) && (
+                      <span className="bg-warning/20 text-warning shrink-0 rounded px-1 py-0.5 text-[9px] font-medium">
+                        Draft
+                      </span>
+                    )}
+                  </div>
                   <span className="text-text-muted text-[10px]">{scopeLabel(rule.scope)}</span>
                 </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const ts = now();
+                    setNewRule({
+                      ...rule,
+                      id: generateId(),
+                      name: `${rule.name || "Untitled"} (Copy)`,
+                      meta: { createdAt: ts, updatedAt: ts },
+                    });
+                  }}
+                  className="text-text-muted hover:bg-bg-tertiary hover:text-text-primary rounded p-1 transition-colors"
+                  aria-label="Duplicate rule"
+                >
+                  <Copy size={12} />
+                </button>
                 <div
                   onClick={(e) => {
                     e.stopPropagation();
