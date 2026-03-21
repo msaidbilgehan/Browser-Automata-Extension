@@ -40,7 +40,8 @@ export type ShortcutAction =
   | { type: "inline_script"; code: string }
   | { type: "focus"; selector: string }
   | { type: "navigate"; url: string }
-  | { type: "flow"; flowId: EntityId };
+  | { type: "flow"; flowId: EntityId }
+  | { type: "extraction"; extractionRuleId: EntityId };
 
 /** Script entity */
 export interface Script {
@@ -116,7 +117,8 @@ export type FlowNodeConfig =
   | { type: "type"; selector: string; text: string }
   | { type: "scroll"; direction: "up" | "down"; amount: number }
   | { type: "script"; scriptId: EntityId }
-  | { type: "extract"; selector: string; attribute?: string; outputVar: string }
+  | { type: "extract"; selector: string; fallbackSelectors?: string[]; attribute?: string; outputVar: string; outputActions?: ExtractionOutputAction[]; transforms?: ExtractionFieldTransform[] }
+  | { type: "run_extraction"; extractionRuleId: EntityId }
   | { type: "wait_element"; selector: string; timeoutMs: number }
   | { type: "wait_ms"; duration: number }
   | { type: "wait_idle" }
@@ -148,13 +150,33 @@ export interface Flow {
   meta: EntityMeta;
 }
 
+/** Transform applied to an extracted field value after extraction */
+export type ExtractionFieldTransform =
+  | { type: "trim" }
+  | { type: "lowercase" }
+  | { type: "uppercase" }
+  | { type: "strip_html" }
+  | { type: "normalize_url" }
+  | { type: "normalize_whitespace" }
+  | { type: "replace"; search: string; replacement: string }
+  | { type: "regex_replace"; pattern: string; flags: string; replacement: string };
+
 /** Extraction field mapping */
 export interface ExtractionField {
   name: string;
   selector: string;
+  /** Additional selectors tried in order if the primary returns empty */
+  fallbackSelectors?: string[];
   attribute?: string;
   multiple: boolean;
+  transforms?: ExtractionFieldTransform[];
 }
+
+/** Actions to perform with extracted data */
+export type ExtractionOutputAction = "show" | "show_page" | "show_tab" | "clipboard" | "download";
+
+/** How an extraction rule can be triggered */
+export type ExtractionTrigger = "manual" | "shortcut" | "page_load";
 
 /** Extraction rule entity */
 export interface ExtractionRule {
@@ -165,7 +187,15 @@ export interface ExtractionRule {
   profileId: EntityId | null;
   fields: ExtractionField[];
   outputFormat: "json" | "csv" | "markdown" | "html" | "text" | "xml";
-  trigger: "manual" | "shortcut" | "page_load";
+  outputActions: ExtractionOutputAction[];
+  /**
+   * How this rule is triggered. Array allows combining page_load + shortcut.
+   * "manual" is exclusive — selecting it deselects the others.
+   * Legacy rules may still have a string value; use `normalizeTriggers()` to migrate.
+   */
+  triggers: ExtractionTrigger[];
+  /** Key combo for shortcut trigger — auto-manages a linked Shortcut entity */
+  shortcutKeyCombo?: KeyCombo;
   meta: EntityMeta;
 }
 

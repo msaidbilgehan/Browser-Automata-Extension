@@ -3,7 +3,7 @@ import type {
   StateResponse,
   LogResponse,
   ExportResponse,
-  ExtractionResponse,
+  ExtractionRunResponse,
   HealthResponse,
 } from "../types/messages";
 
@@ -27,7 +27,9 @@ interface ResponseMap {
   FLOW_RUN_NOW: { ok: boolean; error?: string };
   EXTRACTION_RULE_SAVE: { ok: boolean };
   EXTRACTION_RULE_DELETE: { ok: boolean };
-  EXTRACTION_RUN_NOW: ExtractionResponse;
+  EXTRACTION_RUN_NOW: ExtractionRunResponse;
+  EXTRACTION_TEST: ExtractionRunResponse;
+  EXTRACTION_SHOW_TAB: { ok: boolean };
   PROFILE_SAVE: { ok: boolean };
   PROFILE_DELETE: { ok: boolean };
   PROFILE_SWITCH: { ok: boolean };

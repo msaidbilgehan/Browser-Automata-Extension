@@ -1,4 +1,4 @@
-import type { EntityId, SelectorAlternative } from "./entities";
+import type { EntityId, SelectorAlternative, ExtractionFieldTransform } from "./entities";
 import type {
   Script,
   Shortcut,
@@ -23,6 +23,8 @@ import type { ActivityLogEntry, LogAction, LogStatus } from "./activity-log";
 export interface ContentReadyMessage {
   type: "CONTENT_READY";
   url: string;
+  /** True when this is a retry (only shortcuts need re-pushing, not extractions) */
+  isRetry?: boolean;
 }
 
 export interface ShortcutFiredMessage {
@@ -89,8 +91,10 @@ export interface ExtractDataMessage {
   fields: {
     name: string;
     selector: string;
+    fallbackSelectors?: string[];
     attribute?: string;
     multiple: boolean;
+    transforms?: ExtractionFieldTransform[];
   }[];
 }
 
@@ -189,6 +193,27 @@ export interface ExtractionRuleDeleteMessage {
 export interface ExtractionRunNowMessage {
   type: "EXTRACTION_RUN_NOW";
   ruleId: EntityId;
+}
+
+export interface ExtractionTestMessage {
+  type: "EXTRACTION_TEST";
+  fields: {
+    name: string;
+    selector: string;
+    fallbackSelectors?: string[];
+    attribute?: string;
+    multiple: boolean;
+    transforms?: ExtractionFieldTransform[];
+  }[];
+  outputFormat: "json" | "csv" | "markdown" | "html" | "text" | "xml";
+}
+
+export interface ExtractionShowTabMessage {
+  type: "EXTRACTION_SHOW_TAB";
+  formatted: string;
+  format: string;
+  rowCount: number;
+  name: string;
 }
 
 // Profile messages
@@ -371,9 +396,11 @@ export interface ExportResponse {
   data: BrowserAutomataExport;
 }
 
-export interface ExtractionResponse {
-  data: Record<string, unknown>[];
-  format: string;
+export interface ExtractionRunResponse {
+  ok: boolean;
+  data?: Record<string, unknown>[];
+  formatted?: string;
+  error?: string;
 }
 
 // ─── Union Types ────────────────────────────────────────────────────────────
@@ -396,6 +423,8 @@ export type PopupToSWMessage =
   | ExtractionRuleSaveMessage
   | ExtractionRuleDeleteMessage
   | ExtractionRunNowMessage
+  | ExtractionTestMessage
+  | ExtractionShowTabMessage
   | ProfileSaveMessage
   | ProfileDeleteMessage
   | ProfileSwitchMessage
