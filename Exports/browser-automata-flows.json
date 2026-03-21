@@ -1,0 +1,102 @@
+{
+  "_format": "browser-automata-export",
+  "_schemaVersion": 1,
+  "_exportedAt": "2026-03-21T20:35:15.421Z",
+  "_includesSecrets": false,
+  "flows": [
+    {
+      "description": "",
+      "enabled": true,
+      "id": "3a18dfd0-e904-4342-b2a0-2ea69949dbf4",
+      "meta": {
+        "createdAt": "2026-03-21T16:49:21.499Z",
+        "updatedAt": "2026-03-21T18:45:14.961Z"
+      },
+      "name": "OA to IMDB",
+      "nodes": [
+        {
+          "config": {
+            "fallbackSelectors": [
+              "h1.type-title",
+              "h3.type-title"
+            ],
+            "outputActions": [
+              "show",
+              "show_page"
+            ],
+            "outputVar": "oa_title",
+            "selector": "h1.type-title-large",
+            "transforms": [],
+            "type": "extract"
+          },
+          "id": "9f6b3889-e61d-4d6e-8bf9-4794ebfb9ef1",
+          "type": "action"
+        },
+        {
+          "config": {
+            "type": "navigate",
+            "url": "https://www.imdb.com/find/?q={{oa_title}}"
+          },
+          "id": "ab8ebf78-a218-407c-856f-d5c502c4de05",
+          "type": "action"
+        },
+        {
+          "config": {
+            "selector": "ul[role=presentation] > div.ipc-title > a[href] > h3.ipc-title__text",
+            "type": "click"
+          },
+          "id": "25192a8c-7e29-453f-9826-53ec8805dfec",
+          "type": "action"
+        }
+      ],
+      "profileId": null,
+      "scope": {
+        "type": "exact",
+        "value": "openani.me"
+      }
+    },
+    {
+      "description": "",
+      "enabled": true,
+      "id": "9a1ed294-6d77-4de3-9021-277ba35fcace",
+      "meta": {
+        "createdAt": "2026-03-21T17:35:58.622Z",
+        "updatedAt": "2026-03-21T20:35:08.749Z"
+      },
+      "name": "OA to Google",
+      "nodes": [
+        {
+          "config": {
+            "fallbackSelectors": [
+              "h1.type-title",
+              "h3.type-title"
+            ],
+            "outputActions": [
+              "show",
+              "show_page"
+            ],
+            "outputVar": "oa_title",
+            "selector": "h1.type-title-large",
+            "transforms": [],
+            "type": "extract"
+          },
+          "id": "9f6b3889-e61d-4d6e-8bf9-4794ebfb9ef1",
+          "type": "action"
+        },
+        {
+          "config": {
+            "type": "open_tab",
+            "url": "https://www.google.com/search?q={{oa_title}} izle"
+          },
+          "id": "cd7b4e80-692e-4d5d-b5a1-7a775b3c945b",
+          "type": "open_tab"
+        }
+      ],
+      "profileId": null,
+      "scope": {
+        "type": "exact",
+        "value": "openani.me"
+      }
+    }
+  ]
+}

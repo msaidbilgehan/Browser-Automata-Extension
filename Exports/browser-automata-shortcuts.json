@@ -1,9 +1,59 @@
 {
   "_format": "browser-automata-export",
   "_schemaVersion": 1,
-  "_exportedAt": "2026-03-21T15:53:42.871Z",
+  "_exportedAt": "2026-03-21T20:34:00.216Z",
   "_includesSecrets": false,
   "shortcuts": [
+    {
+      "action": {
+        "flowId": "3a18dfd0-e904-4342-b2a0-2ea69949dbf4",
+        "type": "flow"
+      },
+      "enabled": true,
+      "id": "64abcb6e-9988-4cc9-a318-5082e514e363",
+      "keyCombo": {
+        "altKey": false,
+        "ctrlKey": false,
+        "key": "ı",
+        "metaKey": false,
+        "shiftKey": false
+      },
+      "meta": {
+        "createdAt": "2026-03-21T17:20:45.298Z",
+        "updatedAt": "2026-03-21T17:21:00.385Z"
+      },
+      "name": "OA - IMDB",
+      "profileId": null,
+      "scope": {
+        "type": "exact",
+        "value": "openani.me"
+      }
+    },
+    {
+      "action": {
+        "flowId": "9a1ed294-6d77-4de3-9021-277ba35fcace",
+        "type": "flow"
+      },
+      "enabled": true,
+      "id": "65107a96-1f48-48eb-b6e5-9dba141289f7",
+      "keyCombo": {
+        "altKey": false,
+        "ctrlKey": false,
+        "key": "q",
+        "metaKey": false,
+        "shiftKey": false
+      },
+      "meta": {
+        "createdAt": "2026-03-21T17:36:44.136Z",
+        "updatedAt": "2026-03-21T17:36:58.154Z"
+      },
+      "name": "OA - Google",
+      "profileId": null,
+      "scope": {
+        "type": "exact",
+        "value": "openani.me"
+      }
+    },
     {
       "action": {
         "selector": "like-button-view-model.ytLikeButtonViewModelHost > toggle-button-view-model > button-view-model.ytSpecButtonViewModelHost > label.yt-spec-button-shape-with-label",
@@ -123,31 +173,6 @@
         "updatedAt": "2026-03-20T19:12:54.728Z"
       },
       "name": "OA - Previous",
-      "profileId": null,
-      "scope": {
-        "type": "exact",
-        "value": "openani.me"
-      }
-    },
-    {
-      "action": {
-        "selector": "div.skip-button > button.button",
-        "type": "click"
-      },
-      "enabled": true,
-      "id": "d6202b17-2520-413a-9abe-73185fa5f6e8",
-      "keyCombo": {
-        "altKey": false,
-        "ctrlKey": false,
-        "key": "s",
-        "metaKey": false,
-        "shiftKey": false
-      },
-      "meta": {
-        "createdAt": "2026-03-20T19:09:40.197Z",
-        "updatedAt": "2026-03-20T19:12:17.561Z"
-      },
-      "name": "test",
       "profileId": null,
       "scope": {
         "type": "exact",
