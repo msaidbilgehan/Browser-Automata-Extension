@@ -1,11 +1,45 @@
-import { localStore } from "@/shared/storage";
+import { localStore, syncStore } from "@/shared/storage";
+import { matchUrl } from "@/shared/url-pattern/matcher";
 import { appendLogEntry } from "@/background/handlers/log-handler";
-import { inlineDeepQuery, inlineDeepQueryAll } from "@/shared/deep-query-snippet";
-import type { EntityId, ExtractionRule, ExtractionField } from "@/shared/types/entities";
+import type { EntityId, ExtractionRule, ExtractionOutputAction, ExtractionTrigger } from "@/shared/types/entities";
+import { injectResultWidget, writeResultPage } from "@/shared/result-display";
 
 /**
- * Run an extraction rule on a specific tab: load the rule, inject
- * extraction script, collect and format results.
+ * Ensure the content script is available on the tab. If not, inject it
+ * programmatically and retry the PING to confirm it's ready.
+ */
+export async function ensureContentScript(tabId: number): Promise<void> {
+  try {
+    await chrome.tabs.sendMessage(tabId, { type: "PING" });
+  } catch {
+    const manifest = chrome.runtime.getManifest();
+    const contentJs = manifest.content_scripts?.[0]?.js?.[0];
+    if (!contentJs) {
+      throw new Error("Content script not found in manifest");
+    }
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: [contentJs],
+    });
+    // Wait for the content script to initialise (CRXJS uses async import)
+    const maxRetries = 10;
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        await chrome.tabs.sendMessage(tabId, { type: "PING" });
+        return;
+      } catch {
+        if (i === maxRetries - 1) {
+          throw new Error("Content script did not initialise in time");
+        }
+        await new Promise((r) => setTimeout(r, 100));
+      }
+    }
+  }
+}
+
+/**
+ * Run an extraction rule on a specific tab by sending EXTRACT_DATA
+ * to the content script, then formatting the results.
  */
 export async function runExtraction(
   ruleId: EntityId,
@@ -19,15 +53,26 @@ export async function runExtraction(
   }
 
   try {
-    const results = await chrome.scripting.executeScript({
-      target: { tabId },
-      world: "MAIN",
-      func: extractData,
-      args: [rule.fields],
-    });
+    await ensureContentScript(tabId);
 
-    const rawData = results[0]?.result;
-    const data = rawData ?? [];
+    const response = await chrome.tabs.sendMessage(tabId, {
+      type: "EXTRACT_DATA",
+      ruleId,
+      fields: rule.fields.map((f) => ({
+        name: f.name,
+        selector: f.selector,
+        fallbackSelectors: f.fallbackSelectors,
+        attribute: f.attribute,
+        multiple: f.multiple,
+        transforms: f.transforms,
+      })),
+    }) as { ok: boolean; data?: Record<string, unknown>[] } | undefined;
+
+    if (!response?.ok) {
+      throw new Error("Content script returned an error");
+    }
+
+    const data = response.data ?? [];
     const formatted = formatResults(data, rule.outputFormat);
 
     await appendLogEntry({
@@ -55,41 +100,204 @@ export async function runExtraction(
 }
 
 /**
- * The function injected into the page to extract data based on field definitions.
- * Uses shadow-DOM-aware query helpers so selectors reach Web Components.
+ * Run an ad-hoc extraction test with arbitrary fields on the active tab.
+ * Used by the flow editor "Test" button — no rule ID required.
  */
-function extractData(fields: ExtractionField[]): Record<string, unknown>[] {
-  // Inline deep query helpers (injected functions can't import modules)
-  const qsDeep = inlineDeepQuery;
-  const qsaDeep = inlineDeepQueryAll;
+export async function testExtraction(
+  fields: { name: string; selector: string; attribute?: string; multiple: boolean; transforms?: import("@/shared/types/entities").ExtractionFieldTransform[] }[],
+  outputFormat: import("@/shared/types/entities").ExtractionRule["outputFormat"],
+): Promise<{ ok: boolean; data?: Record<string, unknown>[]; formatted?: string; error?: string }> {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) return { ok: false, error: "No active tab" };
 
-  // Find the maximum result set size by checking "multiple" fields
-  const multipleField = fields.find((f) => f.multiple);
-  const elements = multipleField ? qsaDeep(multipleField.selector) : null;
+  try {
+    await ensureContentScript(tab.id);
 
-  const rowCount = elements ? elements.length : 1;
-  const results: Record<string, unknown>[] = [];
+    const response = await chrome.tabs.sendMessage(tab.id, {
+      type: "EXTRACT_DATA",
+      ruleId: "__test__",
+      fields,
+    }) as { ok: boolean; data?: Record<string, unknown>[] } | undefined;
 
-  for (let i = 0; i < rowCount; i++) {
-    const row: Record<string, unknown> = {};
-    for (const field of fields) {
-      if (field.multiple) {
-        const els = qsaDeep(field.selector);
-        const el = els[i];
-        row[field.name] = el
-          ? ((field.attribute ? el.getAttribute(field.attribute) : el.textContent) ?? null)
-          : null;
-      } else {
-        const el = qsDeep(field.selector);
-        row[field.name] = el
-          ? ((field.attribute ? el.getAttribute(field.attribute) : el.textContent) ?? null)
-          : null;
-      }
+    if (!response?.ok) {
+      return { ok: false, error: "Content script returned an error" };
     }
-    results.push(row);
+
+    const data = response.data ?? [];
+    const formatted = formatResults(data, outputFormat);
+    return { ok: true, data, formatted };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * Normalize legacy `trigger` (string) to `triggers` (array).
+ * Existing rules stored before the multi-trigger change may have `trigger`
+ * instead of `triggers`. This ensures consistent array access.
+ */
+export function normalizeTriggers(rule: ExtractionRule): ExtractionTrigger[] {
+  if (rule.triggers && rule.triggers.length > 0) return rule.triggers;
+  // Legacy fallback: single string field
+  const legacy = (rule as unknown as Record<string, unknown>)["trigger"] as ExtractionTrigger | undefined;
+  if (legacy) return [legacy];
+  return ["manual"];
+}
+
+/**
+ * Get all enabled extraction rules matching a URL with a specific trigger.
+ */
+export async function getMatchingExtractionRules(
+  url: string,
+  trigger: ExtractionTrigger,
+): Promise<ExtractionRule[]> {
+  const settings = await syncStore.get("settings");
+  if (!settings?.globalEnabled) return [];
+
+  const extractionRules = (await localStore.get("extractionRules")) ?? {};
+  return Object.values(extractionRules).filter(
+    (r) => r.enabled && normalizeTriggers(r).includes(trigger) && matchUrl(r.scope, url),
+  );
+}
+
+/**
+ * Run all page_load extraction rules for a given tab URL.
+ * Results are extracted and output actions are processed in the background.
+ */
+export async function runPageLoadExtractions(tabId: number, url: string): Promise<void> {
+  const rules = await getMatchingExtractionRules(url, "page_load");
+  for (const rule of rules) {
+    const result = await runExtraction(rule.id, tabId);
+    const data = result.data ?? [];
+    if (result.ok && result.formatted && data.length > 0) {
+      await processOutputActions(tabId, rule, result.formatted, data);
+    }
+  }
+}
+
+const FORMAT_EXTENSIONS: Record<ExtractionRule["outputFormat"], string> = {
+  json: "json", csv: "csv", markdown: "md", html: "html", text: "txt", xml: "xml",
+};
+
+const FORMAT_MIME: Record<ExtractionRule["outputFormat"], string> = {
+  json: "application/json", csv: "text/csv", markdown: "text/markdown",
+  html: "text/html", text: "text/plain", xml: "application/xml",
+};
+
+/**
+ * Process output actions for an extraction result from the service worker.
+ * Handles clipboard, download, show_page, and show_tab actions.
+ * The "show" action (popup panel) is skipped since the popup may not be open.
+ */
+export async function processOutputActions(
+  tabId: number,
+  rule: ExtractionRule,
+  formatted: string,
+  data: Record<string, unknown>[],
+): Promise<void> {
+  // Skip all actions if extraction returned no data
+  if (data.length === 0) return;
+
+  const actions: ExtractionOutputAction[] = rule.outputActions;
+
+  // Copy to clipboard via content script injection
+  if (actions.includes("clipboard")) {
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        func: (text: string) => { void navigator.clipboard.writeText(text); },
+        args: [formatted],
+      });
+    } catch {
+      // Clipboard write can fail on restricted pages
+    }
   }
 
-  return results;
+  // Download via chrome.downloads API
+  if (actions.includes("download")) {
+    try {
+      if (!chrome.downloads?.download) throw new Error("downloads permission not granted");
+      const safeName = (rule.name || "extraction").replace(/[^a-zA-Z0-9_-]/g, "_");
+      const ext = FORMAT_EXTENSIONS[rule.outputFormat];
+      const mime = FORMAT_MIME[rule.outputFormat];
+      const dataUrl = `data:${mime};charset=utf-8,${encodeURIComponent(formatted)}`;
+      await chrome.downloads.download({
+        url: dataUrl,
+        filename: `${safeName}.${ext}`,
+        saveAs: false,
+      });
+    } catch {
+      // Download can fail in some contexts
+    }
+  }
+
+  // Show on page as a draggable widget
+  if (actions.includes("show_page")) {
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        world: "MAIN",
+        func: injectResultWidget,
+        args: [formatted, rule.outputFormat, data.length, rule.name],
+      });
+    } catch {
+      // Page injection can fail on restricted pages
+    }
+  }
+
+  // Show in a new tab
+  if (actions.includes("show_tab")) {
+    try {
+      await openResultTab(formatted, rule.outputFormat, data.length, rule.name, false);
+    } catch {
+      // Tab creation can fail in rare cases
+    }
+  }
+}
+
+/**
+ * Wait for a tab to finish loading (status === "complete").
+ * Resolves immediately if the tab is already complete.
+ */
+function waitForTabReady(tabId: number): Promise<void> {
+  return new Promise((resolve) => {
+    const listener = (id: number, info: chrome.tabs.TabChangeInfo) => {
+      if (id === tabId && info.status === "complete") {
+        chrome.tabs.onUpdated.removeListener(listener);
+        resolve();
+      }
+    };
+    chrome.tabs.onUpdated.addListener(listener);
+    // Check if already complete (race guard)
+    void chrome.tabs.get(tabId).then((tab) => {
+      if (tab.status === "complete") {
+        chrome.tabs.onUpdated.removeListener(listener);
+        resolve();
+      }
+    });
+  });
+}
+
+/**
+ * Open a new tab and write extraction results into it.
+ * Used by both popup (via EXTRACTION_SHOW_TAB message) and background output actions.
+ */
+export async function openResultTab(
+  formatted: string,
+  format: string,
+  rowCount: number,
+  name: string,
+  active = false,
+): Promise<void> {
+  const newTab = await chrome.tabs.create({ active, url: "about:blank" });
+  if (newTab.id) {
+    await waitForTabReady(newTab.id);
+    await chrome.scripting.executeScript({
+      target: { tabId: newTab.id },
+      func: writeResultPage,
+      args: [formatted, format, rowCount, name],
+    });
+  }
 }
 
 /**

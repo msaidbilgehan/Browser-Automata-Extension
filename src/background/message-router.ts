@@ -16,6 +16,7 @@ import { handleGetLog, handleClearLog } from "./handlers/log-handler";
 import { runScriptNow, injectPageLoadScripts } from "./services/script-manager";
 import { pushShortcutsToTab, handleShortcutExecution } from "./services/shortcut-manager";
 import { injectMatchingCSS } from "./services/css-injector";
+import { runPageLoadExtractions, openResultTab, testExtraction } from "./services/extraction-engine";
 import { showErrorBadge } from "./services/error-surfacer";
 import { handleFlowSave, handleFlowDelete, handleFlowRunNow } from "./handlers/flow-handler";
 import {
@@ -101,12 +102,18 @@ async function routeMessage(
     case "CONTENT_READY": {
       const tabId = sender.tab?.id;
       if (tabId) {
-        // Inject page_load scripts, CSS, and push shortcuts — in parallel
-        await Promise.all([
-          injectPageLoadScripts(tabId, message.url),
-          injectMatchingCSS(tabId, message.url),
-          pushShortcutsToTab(tabId, message.url),
-        ]);
+        if (message.isRetry) {
+          // Retries only need to re-push shortcuts — skip scripts, CSS, and extractions
+          await pushShortcutsToTab(tabId, message.url);
+        } else {
+          // First load: inject scripts, CSS, push shortcuts, and run page_load extractions
+          await Promise.all([
+            injectPageLoadScripts(tabId, message.url),
+            injectMatchingCSS(tabId, message.url),
+            pushShortcutsToTab(tabId, message.url),
+            runPageLoadExtractions(tabId, message.url),
+          ]);
+        }
       }
       return undefined;
     }
@@ -134,6 +141,13 @@ async function routeMessage(
 
     case "EXTRACTION_RUN_NOW":
       return handleExtractionRunNow(message.ruleId);
+
+    case "EXTRACTION_TEST":
+      return testExtraction(message.fields, message.outputFormat);
+
+    case "EXTRACTION_SHOW_TAB":
+      await openResultTab(message.formatted, message.format, message.rowCount, message.name, true);
+      return { ok: true };
 
     // ─── Phase 3: Profile messages ─────────────────────────────────────
     case "PROFILE_SAVE":

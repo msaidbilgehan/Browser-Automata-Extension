@@ -3,6 +3,8 @@ import { matchUrl } from "@/shared/url-pattern/matcher";
 import type { Shortcut, EntityId } from "@/shared/types/entities";
 import { appendLogEntry } from "@/background/handlers/log-handler";
 import { executeScript } from "./script-manager";
+import { runExtraction, processOutputActions } from "./extraction-engine";
+import { executeFlow } from "./flow-executor";
 
 /**
  * Get all active shortcuts matching a URL.
@@ -91,10 +93,24 @@ export async function handleShortcutExecution(
       await chrome.tabs.update(tabId, { url: shortcut.action.url });
       break;
     }
+    case "extraction": {
+      const result = await runExtraction(shortcut.action.extractionRuleId, tabId);
+      if (result.ok && result.formatted) {
+        const extractionRules = (await localStore.get("extractionRules")) ?? {};
+        const rule = extractionRules[shortcut.action.extractionRuleId];
+        if (rule) {
+          await processOutputActions(tabId, rule, result.formatted, result.data ?? []);
+        }
+      }
+      break;
+    }
+    case "flow": {
+      void executeFlow(shortcut.action.flowId, tabId);
+      break;
+    }
     // click and focus are handled directly in the content script
     case "click":
     case "focus":
-    case "flow":
       break;
   }
 }
