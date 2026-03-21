@@ -22,6 +22,7 @@ Wire keyboard shortcuts to page elements, execute JavaScript on any domain, extr
 - [Development](#development)
 - [Testing](#testing)
 - [Contributing](#contributing)
+- [Support](#support)
 - [License](#license)
 
 ---
@@ -596,6 +597,14 @@ npm run test         # All tests pass
 - Include tests for new functionality.
 - Update relevant types in `shared/types/` when changing entity schemas.
 - Test in Chrome with the extension loaded before submitting.
+
+---
+
+## Support
+
+If you find Browser Automata useful, consider supporting its development:
+
+[![Open Collective](https://img.shields.io/badge/Open%20Collective-Donate-blue?logo=opencollective)](https://opencollective.com/browser-automata-extension)
 
 ---
 
