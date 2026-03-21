@@ -13,23 +13,12 @@ import {
   Activity,
   Settings,
 } from "lucide-react";
+import { useCallback } from "react";
 import { useInitialize } from "@/popup/hooks/use-initialize";
 import { useTheme } from "@/popup/hooks/use-theme";
 import { useAppStore } from "@/popup/stores/app-store";
 import type { TabId } from "@/popup/stores/app-store";
-import { ScriptsView } from "@/popup/components/views/ScriptsView";
-import { ShortcutsView } from "@/popup/components/views/ShortcutsView";
-import { FlowsView } from "@/popup/components/views/FlowsView";
-import { CSSRulesView } from "@/popup/components/views/CSSRulesView";
-import { NetworkRulesView } from "@/popup/components/views/NetworkRulesView";
-import { ExtractionView } from "@/popup/components/views/ExtractionView";
-import { DomainsView } from "@/popup/components/views/DomainsView";
-import { TemplatesView } from "@/popup/components/views/TemplatesView";
-import { ProfilesView } from "@/popup/components/views/ProfilesView";
-import { LogView } from "@/popup/components/views/LogView";
-import { ImportExportView } from "@/popup/components/views/ImportExportView";
-import { HealthView } from "@/popup/components/views/HealthView";
-import { SettingsView } from "@/popup/components/views/SettingsView";
+import { ViewRouter } from "@/popup/components/ViewRouter";
 
 interface SidebarItem {
   id: TabId;
@@ -53,37 +42,6 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
   { id: "settings", label: "Settings", icon: <Settings size={18} /> },
 ];
 
-function ActiveView({ tab }: { tab: TabId }) {
-  switch (tab) {
-    case "scripts":
-      return <ScriptsView />;
-    case "shortcuts":
-      return <ShortcutsView />;
-    case "flows":
-      return <FlowsView />;
-    case "css-rules":
-      return <CSSRulesView />;
-    case "network-rules":
-      return <NetworkRulesView />;
-    case "extraction":
-      return <ExtractionView />;
-    case "domains":
-      return <DomainsView />;
-    case "templates":
-      return <TemplatesView />;
-    case "profiles":
-      return <ProfilesView />;
-    case "log":
-      return <LogView />;
-    case "import-export":
-      return <ImportExportView />;
-    case "health":
-      return <HealthView />;
-    case "settings":
-      return <SettingsView />;
-  }
-}
-
 export function App() {
   useInitialize();
   useTheme();
@@ -94,6 +52,13 @@ export function App() {
   const initialized = useAppStore((s) => s.initialized);
   const globalEnabled = useAppStore((s) => s.settings.globalEnabled);
   const toggleGlobalEnabled = useAppStore((s) => s.toggleGlobalEnabled);
+
+  const handleTabClick = useCallback(
+    (id: TabId) => {
+      setActiveTab(id);
+    },
+    [setActiveTab],
+  );
 
   if (!initialized && loading) {
     return (
@@ -127,20 +92,21 @@ export function App() {
           </button>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2">
+        <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2" role="tablist" aria-label="Main navigation" aria-orientation="vertical">
           {SIDEBAR_ITEMS.map((item) => (
             <button
               key={item.id}
               type="button"
+              role="tab"
+              aria-selected={activeTab === item.id}
               onClick={() => {
-                setActiveTab(item.id);
+                handleTabClick(item.id);
               }}
               className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors ${
                 activeTab === item.id
                   ? "bg-bg-tertiary text-active"
                   : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"
               }`}
-              aria-current={activeTab === item.id ? "page" : undefined}
             >
               {item.icon}
               {item.label}
@@ -150,9 +116,9 @@ export function App() {
       </aside>
 
       <div className="flex flex-1 flex-col">
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-6" role="tabpanel">
           <div className="mx-auto max-w-5xl">
-            <ActiveView tab={activeTab} />
+            <ViewRouter activeTab={activeTab} />
           </div>
         </main>
       </div>
