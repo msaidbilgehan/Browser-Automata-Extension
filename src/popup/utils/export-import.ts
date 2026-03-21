@@ -1,6 +1,16 @@
 import { sendToBackground } from "@/shared/messaging";
-import type { BrowserAutomataExport, ImportMergeStrategy } from "@/shared/types/entities";
+import type { BrowserAutomataExport, ImportMergeStrategy, EntityId } from "@/shared/types/entities";
 import type { ActivityLogEntry } from "@/shared/types/activity-log";
+import type {
+  ImportConflictReport,
+  ImportExportSectionKey,
+  DependencySummary,
+  ImportEntityOverride,
+} from "@/shared/types/import-export";
+import type {
+  ExportWithDepsResponse,
+  DetectImportConflictsResponse,
+} from "@/shared/types/messages";
 
 /**
  * Section keys that can be selectively exported/imported.
@@ -179,6 +189,69 @@ export function exportLogs(entries: readonly ActivityLogEntry[]): void {
     entries,
   };
   downloadJsonFile(data, exportFilename("log"));
+}
+
+/**
+ * Export specific sections with dependency resolution and trigger a file download.
+ * Resolves referenced entities (e.g. a shortcut's flow) and includes them.
+ * @returns Success message and dependency summary.
+ */
+export async function exportSectionsWithDeps(
+  sections: ReadonlySet<ExportSectionKey>,
+): Promise<{ message: string; summary: DependencySummary }> {
+  const response = await sendToBackground({
+    type: "EXPORT_CONFIG_WITH_DEPS",
+    sections: [...sections] as ImportExportSectionKey[],
+  });
+  const { data, dependencySummary } = response as ExportWithDepsResponse;
+
+  const label = sections.size === Object.keys(EXPORT_SECTIONS).length ? "export" : "partial-export";
+  downloadJsonFile(data, exportFilename(label));
+
+  const depParts: string[] = [];
+  if (dependencySummary.addedFlows > 0)
+    depParts.push(`${String(dependencySummary.addedFlows)} flow(s)`);
+  if (dependencySummary.addedScripts > 0)
+    depParts.push(`${String(dependencySummary.addedScripts)} script(s)`);
+  if (dependencySummary.addedExtractionRules > 0)
+    depParts.push(`${String(dependencySummary.addedExtractionRules)} extraction rule(s)`);
+  if (dependencySummary.addedProfiles > 0)
+    depParts.push(`${String(dependencySummary.addedProfiles)} profile(s)`);
+
+  const depMsg =
+    depParts.length > 0 ? ` (added ${depParts.join(", ")} as dependencies)` : "";
+
+  return {
+    message: `Configuration exported successfully.${depMsg}`,
+    summary: dependencySummary,
+  };
+}
+
+/**
+ * Detect conflicts between a parsed export file and existing storage.
+ */
+export async function detectConflicts(
+  data: BrowserAutomataExport,
+): Promise<ImportConflictReport> {
+  const response = await sendToBackground({
+    type: "DETECT_IMPORT_CONFLICTS",
+    data,
+  });
+  return (response as DetectImportConflictsResponse).report;
+}
+
+/**
+ * Import only selected entities, with optional overrides (e.g. changed key combos).
+ */
+export async function importSelective(
+  data: BrowserAutomataExport,
+  selectedIds: EntityId[],
+  overrides?: Record<string, ImportEntityOverride>,
+): Promise<void> {
+  const msg = overrides
+    ? { type: "IMPORT_CONFIG_SELECTIVE" as const, data, selectedIds, overrides }
+    : { type: "IMPORT_CONFIG_SELECTIVE" as const, data, selectedIds };
+  await sendToBackground(msg);
 }
 
 /**

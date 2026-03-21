@@ -1,37 +1,24 @@
 import { useState, useRef, useCallback } from "react";
-import { Download, Upload, AlertCircle } from "lucide-react";
-import type { BrowserAutomataExport, ImportMergeStrategy } from "@/shared/types/entities";
-import { sendToBackground } from "@/shared/messaging";
+import { Download, Upload, AlertCircle, Loader2 } from "lucide-react";
+import type { BrowserAutomataExport, EntityId } from "@/shared/types/entities";
+import type { ImportConflictReport, ImportEntityOverride } from "@/shared/types/import-export";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
+import { Toggle } from "../ui/Toggle";
+import { ImportConflictReview } from "./ImportConflictReview";
 import {
   EXPORT_SECTIONS,
   type ExportSectionKey,
   exportSections,
+  exportSectionsWithDeps,
   readJsonFile,
   isValidExport,
   summarizeExport,
+  detectConflicts,
+  importSelective,
 } from "../../utils/export-import";
 
 const ALL_SECTION_KEYS = Object.keys(EXPORT_SECTIONS) as ExportSectionKey[];
-
-const MERGE_STRATEGIES: { value: ImportMergeStrategy; label: string; description: string }[] = [
-  {
-    value: "replace_all",
-    label: "Replace All",
-    description: "Remove existing data and import everything fresh",
-  },
-  {
-    value: "merge_keep",
-    label: "Merge (Keep Existing)",
-    description: "Add new items, skip items that already exist",
-  },
-  {
-    value: "merge_overwrite",
-    label: "Merge (Overwrite)",
-    description: "Add new items, overwrite items that already exist",
-  },
-];
 
 export function ImportExportView() {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -41,11 +28,13 @@ export function ImportExportView() {
     () => new Set(ALL_SECTION_KEYS),
   );
   const [exporting, setExporting] = useState(false);
+  const [includeDeps, setIncludeDeps] = useState(true);
 
   // Import state
-  const [importing, setImporting] = useState(false);
   const [importData, setImportData] = useState<BrowserAutomataExport | null>(null);
-  const [strategy, setStrategy] = useState<ImportMergeStrategy>("merge_keep");
+  const [conflictReport, setConflictReport] = useState<ImportConflictReport | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   // Feedback
   const [error, setError] = useState<string | null>(null);
@@ -81,8 +70,13 @@ export function ImportExportView() {
     setError(null);
     setSuccess(null);
     try {
-      const msg = await exportSections(selectedSections);
-      setSuccess(msg);
+      if (includeDeps) {
+        const result = await exportSectionsWithDeps(selectedSections);
+        setSuccess(result.message);
+      } else {
+        const msg = await exportSections(selectedSections);
+        setSuccess(msg);
+      }
     } catch (err) {
       setError(`Export failed: ${String(err)}`);
     } finally {
@@ -94,6 +88,7 @@ export function ImportExportView() {
     setError(null);
     setSuccess(null);
     setImportData(null);
+    setConflictReport(null);
 
     const file = e.target.files?.[0];
     if (!file) return;
@@ -108,29 +103,41 @@ export function ImportExportView() {
         return;
       }
       setImportData(parsed);
+
+      // Analyze conflicts
+      setAnalyzing(true);
+      const report = await detectConflicts(parsed);
+      setConflictReport(report);
     } catch (err) {
       setError(String(err));
+    } finally {
+      setAnalyzing(false);
     }
   };
 
-  const handleImport = async () => {
+  const handleSelectiveImport = async (
+    selectedIds: EntityId[],
+    overrides: Record<string, ImportEntityOverride>,
+  ) => {
     if (!importData) return;
     setImporting(true);
     setError(null);
     setSuccess(null);
     try {
-      await sendToBackground({
-        type: "IMPORT_CONFIG",
-        data: importData,
-        strategy,
-      });
-      setSuccess("Configuration imported successfully.");
+      await importSelective(importData, selectedIds, overrides);
+      setSuccess(`Successfully imported ${String(selectedIds.length)} item(s).`);
       setImportData(null);
+      setConflictReport(null);
     } catch (err) {
       setError(`Import failed: ${String(err)}`);
     } finally {
       setImporting(false);
     }
+  };
+
+  const handleCancelImport = () => {
+    setImportData(null);
+    setConflictReport(null);
   };
 
   const importSummary = importData ? summarizeExport(importData) : [];
@@ -196,6 +203,19 @@ export function ImportExportView() {
             </div>
           </div>
 
+          {/* Include dependencies toggle */}
+          <div className="flex flex-col gap-0.5">
+            <Toggle
+              checked={includeDeps}
+              onChange={setIncludeDeps}
+              label="Include referenced entities"
+              size="sm"
+            />
+            <p className="text-text-muted pl-9 text-[10px]">
+              Auto-include flows, scripts, and profiles that selected items depend on.
+            </p>
+          </div>
+
           <Button
             variant="primary"
             onClick={() => void handleExport()}
@@ -229,52 +249,34 @@ export function ImportExportView() {
           <Button
             variant="secondary"
             onClick={() => fileInputRef.current?.click()}
+            disabled={analyzing}
             className="gap-1 self-start"
           >
             <Upload size={12} />
             Choose File
           </Button>
 
-          {importData ? (
+          {/* Analyzing spinner */}
+          {analyzing ? (
+            <div className="flex items-center gap-2 py-2">
+              <Loader2 size={14} className="text-active animate-spin" />
+              <span className="text-text-secondary text-xs">Analyzing file for conflicts...</span>
+            </div>
+          ) : null}
+
+          {/* Conflict review */}
+          {importData && conflictReport && !analyzing ? (
             <div className="border-border bg-bg-tertiary flex flex-col gap-2 rounded-md border p-2">
               <p className="text-text-primary text-xs font-medium">
                 File loaded ({importSummary.join(", ")})
               </p>
 
-              <div className="flex flex-col gap-1">
-                <span className="text-text-secondary text-[10px] font-medium">Merge Strategy</span>
-                {MERGE_STRATEGIES.map((opt) => (
-                  <label
-                    key={opt.value}
-                    className="hover:bg-bg-secondary flex cursor-pointer items-start gap-2 rounded-md p-1 transition-colors"
-                  >
-                    <input
-                      type="radio"
-                      name="merge-strategy"
-                      value={opt.value}
-                      checked={strategy === opt.value}
-                      onChange={() => {
-                        setStrategy(opt.value);
-                      }}
-                      className="accent-active mt-0.5"
-                    />
-                    <div>
-                      <p className="text-text-primary text-xs">{opt.label}</p>
-                      <p className="text-text-muted text-[10px]">{opt.description}</p>
-                    </div>
-                  </label>
-                ))}
-              </div>
-
-              <Button
-                variant="primary"
-                onClick={() => void handleImport()}
-                disabled={importing}
-                className="gap-1 self-start"
-              >
-                <Upload size={12} />
-                {importing ? "Importing..." : "Import"}
-              </Button>
+              <ImportConflictReview
+                report={conflictReport}
+                onImport={(ids, overrides) => void handleSelectiveImport(ids, overrides)}
+                onCancel={handleCancelImport}
+                importing={importing}
+              />
             </div>
           ) : null}
         </div>

@@ -29,7 +29,9 @@ import {
   handleProfileDelete,
   handleProfileSwitch,
 } from "./handlers/profile-handler";
-import { importConfig, exportConfig } from "./services/import-export";
+import { importConfig, exportConfig, filterExportBySection } from "./services/import-export";
+import { resolveDependencies } from "./services/dependency-resolver";
+import { detectImportConflicts, importSelective } from "./services/import-conflict-detector";
 import { installTemplate } from "./services/template-installer";
 import { handleVariableSave, handleVariableDelete } from "./handlers/variable-handler";
 import { handleLibrarySave, handleLibraryDelete } from "./handlers/library-handler";
@@ -179,6 +181,20 @@ async function dispatchMessage(
 
     case "EXPORT_CONFIG":
       return exportConfig();
+
+    case "EXPORT_CONFIG_WITH_DEPS": {
+      const { data: fullExport } = await exportConfig();
+      const sections = new Set(message.sections);
+      const filtered = filterExportBySection(fullExport, sections);
+      const result = await resolveDependencies(filtered);
+      return { data: result.data, dependencySummary: result.summary };
+    }
+
+    case "DETECT_IMPORT_CONFLICTS":
+      return { report: await detectImportConflicts(message.data) };
+
+    case "IMPORT_CONFIG_SELECTIVE":
+      return importSelective(message.data, message.selectedIds, message.overrides);
 
     // ─── Phase 3: Template install ─────────────────────────────────────
     case "INSTALL_TEMPLATE":

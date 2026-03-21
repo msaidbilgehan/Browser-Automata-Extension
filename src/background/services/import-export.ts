@@ -4,6 +4,7 @@ import type {
   ScriptVariable,
 } from "@/shared/types/entities";
 import type { StorageSchema } from "@/shared/storage/keys";
+import type { ImportExportSectionKey } from "@/shared/types/import-export";
 import { localStore, syncStore } from "@/shared/storage";
 import { CURRENT_SCHEMA_VERSION } from "@/shared/constants";
 import { now } from "@/shared/utils";
@@ -165,4 +166,45 @@ function arrayToRecord<T extends { id: string }>(items: T[] | undefined): Record
     }
   }
   return record;
+}
+
+/**
+ * Filter a full export to only include the specified sections.
+ * Background-safe variant (no popup dependencies).
+ */
+export function filterExportBySection(
+  data: BrowserAutomataExport,
+  sections: ReadonlySet<ImportExportSectionKey>,
+): BrowserAutomataExport {
+  const filtered: BrowserAutomataExport = {
+    _format: data._format,
+    _schemaVersion: data._schemaVersion,
+    _exportedAt: data._exportedAt,
+  };
+
+  if (data._includesSecrets !== undefined) {
+    filtered._includesSecrets = data._includesSecrets;
+  }
+
+  if (sections.has("scripts") && data.scripts) filtered.scripts = data.scripts;
+  if (sections.has("shortcuts") && data.shortcuts) filtered.shortcuts = data.shortcuts;
+  if (sections.has("flows") && data.flows) filtered.flows = data.flows;
+  if (sections.has("settings") && data.settings) filtered.settings = data.settings;
+  if (sections.has("cssRules") && data.cssRules) filtered.cssRules = data.cssRules;
+  if (sections.has("extractionRules") && data.extractionRules)
+    filtered.extractionRules = data.extractionRules;
+  if (sections.has("networkRules") && data.networkRules)
+    filtered.networkRules = data.networkRules;
+  if (sections.has("profiles") && data.profiles) filtered.profiles = data.profiles;
+  if (sections.has("variables") && data.variables) filtered.variables = data.variables;
+  if (sections.has("sharedLibraries") && data.sharedLibraries)
+    filtered.sharedLibraries = data.sharedLibraries;
+  if (sections.has("formFillProfiles") && data.formFillProfiles)
+    filtered.formFillProfiles = data.formFillProfiles;
+  if (sections.has("notificationRules") && data.notificationRules)
+    filtered.notificationRules = data.notificationRules;
+  if (sections.has("siteAdapters") && data.siteAdapters)
+    filtered.siteAdapters = data.siteAdapters;
+
+  return filtered;
 }

@@ -17,6 +17,12 @@ import type {
 } from "./entities";
 import type { Settings } from "./settings";
 import type { ActivityLogEntry, LogAction, LogStatus } from "./activity-log";
+import type {
+  ImportConflictReport,
+  ImportEntityOverride,
+  ImportExportSectionKey,
+  DependencySummary,
+} from "./import-export";
 
 // ─── Content Script → Service Worker ────────────────────────────────────────
 
@@ -249,6 +255,23 @@ export interface ExportConfigMessage {
   type: "EXPORT_CONFIG";
 }
 
+export interface ExportConfigWithDepsMessage {
+  type: "EXPORT_CONFIG_WITH_DEPS";
+  sections: ImportExportSectionKey[];
+}
+
+export interface DetectImportConflictsMessage {
+  type: "DETECT_IMPORT_CONFLICTS";
+  data: BrowserAutomataExport;
+}
+
+export interface ImportConfigSelectiveMessage {
+  type: "IMPORT_CONFIG_SELECTIVE";
+  data: BrowserAutomataExport;
+  selectedIds: EntityId[];
+  overrides?: Record<string, ImportEntityOverride>;
+}
+
 // Recording messages
 export interface StartRecordingPopupMessage {
   type: "START_RECORDING_POPUP";
@@ -396,6 +419,15 @@ export interface ExportResponse {
   data: BrowserAutomataExport;
 }
 
+export interface ExportWithDepsResponse {
+  data: BrowserAutomataExport;
+  dependencySummary: DependencySummary;
+}
+
+export interface DetectImportConflictsResponse {
+  report: ImportConflictReport;
+}
+
 export interface ExtractionRunResponse {
   ok: boolean;
   data?: Record<string, unknown>[];
@@ -431,6 +463,9 @@ export type PopupToSWMessage =
   | SettingsUpdateMessage
   | ImportConfigMessage
   | ExportConfigMessage
+  | ExportConfigWithDepsMessage
+  | DetectImportConflictsMessage
+  | ImportConfigSelectiveMessage
   | StartRecordingPopupMessage
   | StopRecordingPopupMessage
   | InstallTemplateMessage
