@@ -4,6 +4,53 @@ All notable changes to Browser Automata are documented in this file.
 
 ---
 
+## v0.2.1 — 2026-03-21
+
+> Performance optimization, code quality overhaul, and accessibility improvements across the entire codebase.
+
+### Performance
+
+- **Popup session cache** — GET_STATE response is cached in `chrome.storage.session` with a 2-second TTL, eliminating redundant service worker round-trips on popup reopen.
+- **React memoization** — Added `React.memo` and stable `useCallback` wrappers across the four largest views (ExtractionView, NetworkRulesView, ShortcutsView, FlowsView) to reduce unnecessary re-renders.
+- **Shared ViewRouter** — Extracted lazy-loaded view routing into a single `ViewRouter` component shared between popup and options pages. Popup App reduced from 100 to 33 lines; options App removed 13 duplicate view imports.
+
+### Reliability
+
+- **Message router error boundary** — All handler dispatches are wrapped in try-catch, returning structured `{ ok: false, error }` responses instead of propagating errors silently.
+- **Concurrent flow execution guard** — A module-level `runningFlows` Set prevents the same flow from executing twice simultaneously. Returns an error if a duplicate run is attempted; cleans up via `finally` block.
+- **Shortcut debounce** — 100ms debounce per shortcut ID prevents accidental rapid-fire triggers from key repeats.
+- **Extraction payload validation** — Fields are validated for non-empty `name` and `selector` before sending to the content script. Invalid fields are filtered with warnings logged; returns an error if all fields are invalid.
+- **Content script error boundary** — Message handler switch wrapped in try-catch; returns `{ ok: false, error }` on failure instead of crashing the content script message loop.
+- **Schema migration safety** — Each migration step is wrapped in try-catch. The schema version is only updated after a step succeeds; further migrations stop on first failure.
+- **Element watcher cleanup** — New `stopAllWatchers()` export for bulk MutationObserver disconnection on flow completion.
+- **ResponseMap exhaustiveness** — Compile-time `AssertResponseMapComplete` type ensures every `PopupToSWMessage` type has a corresponding `ResponseMap` entry. Fallback type changed from `unknown` to `never`.
+
+### Bug Fixes
+
+- **Fixed "Show in New Tab" blank page** — The "Show in New Tab" output action for both flow extract nodes and extraction rules opened a blank tab. Root cause: `chrome.scripting.executeScript` fails silently on `about:blank` tabs in MV3 because host permissions don't consistently match `about:blank`. Replaced with a dedicated extension-hosted results page (`src/results/index.html`) that reads pre-built HTML from `chrome.storage.session`, eliminating the dependency on `about:blank` and `executeScript` entirely.
+
+### Architecture
+
+- **FlowNodeEditor split** — Monolithic 1,072-line component split into 7 focused sub-components in `editor/flow-nodes/`: `NodeConfigForm`, `FlowNodeRow`, `AddNodeMenu`, `OutputActionCheckboxes`, `ExtractTestButton`, `ExtractionRuleSelect`, and `constants`. Main file reduced to ~130 lines (thin orchestrator). Same public API — no consumer changes needed.
+- **Dedicated results page** — New `src/results/index.html` + `main.ts` for rendering extraction results in a new tab. Bundled via Vite/CRXJS as an additional Rollup input. Replaces the unreliable `about:blank` + `executeScript` pattern.
+
+### Accessibility
+
+- **TabBar keyboard navigation** — Arrow Left/Right with wrapping between tabs, Home/End to jump to first/last tab, Escape to close the More menu. Proper ARIA roles (`tablist`, `tab`, `tabpanel`), `aria-selected`, and roving `tabIndex`. More menu uses `role="menu"` with ArrowUp/Down navigation.
+- **Options page ARIA** — Sidebar navigation annotated with `role="tablist"` / `role="tab"` / `role="tabpanel"`.
+- **Focus-visible outlines** — All 5 base UI components (Button, Card, Input, Select, Toggle) now have consistent `focus-visible:outline-2` styles for keyboard users.
+
+### Code Quality
+
+- **ESLint zero errors** — Resolved all 109 ESLint errors across 35+ files (was 109 errors + 6 warnings; now 0/0).
+- **Non-null assertions eliminated** — Replaced `!` assertions with proper null guards throughout (SelectorSourceList, FlowNodeEditor, element-picker, result-display).
+- **Optional chaining adopted** — Converted `&&` null checks to `?.` syntax across handlers and UI components.
+- **Modern iteration** — Converted 6 C-style `for` loops to `for...of` in deep-query-snippet.
+- **Template literal safety** — Wrapped numeric values in `String()` for all template literal expressions (selector-tester, action-highlight, toast, shortcut-manager, service-worker).
+- **Unnecessary conditions removed** — Eliminated dead code paths flagged by `noUncheckedIndexedAccess` and strict type narrowing.
+
+---
+
 ## v0.2.0 — 2026-03-21
 
 > Extraction overhaul, flow reliability, and quality-of-life improvements across all entity views.

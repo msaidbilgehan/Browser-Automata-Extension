@@ -4,7 +4,7 @@
 
 Wire keyboard shortcuts to page elements, execute JavaScript on any domain, extract structured data, chain multi-step flows, inject custom CSS, intercept network requests — all from a compact popup UI. Pre-built templates lower the entry barrier for non-technical users, but the engine never constrains power users.
 
-> **Status:** v0.1.0 · Chrome Extension (Manifest V3) · Private License
+> **Status:** v0.2.1 · Chrome Extension (Manifest V3) · Private License
 
 ---
 
@@ -64,6 +64,7 @@ The goal is to be the single extension that replaces a collection of single-purp
 | **CSS Injection** | Inject custom stylesheets scoped to domains or URL patterns. Inject at `document_start` or `document_idle`. |
 | **URL Pattern Scoping** | Scope any automation to exact URLs, glob patterns, regex, or globally. Specificity rules determine priority. |
 | **Shortcut Conflict Detection** | Detects collisions between shortcuts and warns before saving. |
+| **Shortcut Debounce** | 100ms debounce per shortcut prevents accidental rapid-fire triggers. |
 
 ### Automation & Intelligence
 
@@ -97,6 +98,8 @@ The goal is to be the single extension that replaces a collection of single-purp
 | **Smart Wait** | Detects SPA route changes, network idle, and framework renders (React, Vue) before executing. |
 | **Retry Policies** | Configurable exponential backoff retry on script failures. |
 | **Health Dashboard** | Monitors script failure rates, selector staleness, and storage usage. |
+| **Concurrent Flow Guard** | Prevents duplicate execution of the same flow — returns error if already running. |
+| **Extraction Payload Validation** | Validates field data before sending to content scripts, filtering invalid fields. |
 
 ### Management
 
@@ -384,13 +387,13 @@ Browser Automata follows Chrome's extension architecture with three isolated con
 └─────────────────────────────────────────────────────┘
 ```
 
-**Service Worker** — Always-running background context. Handles message routing, script execution, storage CRUD, scheduling, and all business logic.
+**Service Worker** — Always-running background context. Handles message routing (with global error handler), script execution, storage CRUD, scheduling, and all business logic. Concurrent flow execution is guarded to prevent race conditions.
 
-**Content Script** — Injected into every tab. Listens for keyboard shortcuts, provides element picking, action recording, data extraction, and selector testing.
+**Content Script** — Injected into every tab. Listens for keyboard shortcuts (with 100ms debounce), provides element picking, action recording, data extraction, and selector testing. Wrapped in error boundary for crash resilience.
 
-**Popup UI** — React application (400×580px). Provides the 13-tab interface for managing all automation entities.
+**Popup UI** — React application (400×580px). Provides the 13-tab interface for managing all automation entities. Uses shared `ViewRouter` for lazy-loaded views (deduplicated between popup and options). State cached via session storage for fast popup reopening.
 
-**Options Page** — Full-page editor for complex configurations.
+**Options Page** — Full-page editor with sidebar layout, sharing the same `ViewRouter` and views as the popup.
 
 ### Data Model
 
@@ -457,11 +460,14 @@ browser-automata/
 │   │   ├── hooks/               # React hooks (init, theme, messaging)
 │   │   ├── components/
 │   │   │   ├── Header.tsx       # Popup header with global controls
-│   │   │   ├── TabBar.tsx       # Bottom navigation tabs
+│   │   │   ├── TabBar.tsx       # Bottom navigation with keyboard nav + ARIA
+│   │   │   ├── ViewRouter.tsx   # Shared lazy-loaded view routing (popup + options)
 │   │   │   ├── views/           # 13 tab panels (Scripts, Shortcuts, Flows, ...)
 │   │   │   ├── editor/          # CodeMirror wrapper, selector inputs
+│   │   │   │   └── flow-nodes/  # Split FlowNodeEditor sub-components (7 files)
 │   │   │   └── ui/              # Shared primitives (Button, Input, Toggle, ...)
 │   │   └── utils/               # Export/import helpers
+│   ├── results/                 # Extraction result viewer page (session-storage driven)
 │   ├── options/                 # Full-page Options UI (App.tsx, main.tsx, options.css)
 │   ├── lib/codemirror/          # CodeMirror editor configuration
 │   ├── shared/                  # Cross-context shared code
