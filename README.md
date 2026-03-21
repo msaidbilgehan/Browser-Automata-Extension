@@ -60,7 +60,7 @@ The goal is to be the single extension that replaces a collection of single-purp
 | Feature | Description |
 | --------- | ------------- |
 | **Script Execution** | Run JavaScript on any page with triggers: page load, manual, shortcut, event, or schedule. Execute in isolated or main world. |
-| **Keyboard Shortcuts** | Bind any key combination to actions — click, focus, navigate, run a script, or trigger a flow. Supports chord combos (e.g., `g` then `i` for GitHub Issues). |
+| **Keyboard Shortcuts** | Bind any key combination to actions — click, focus, navigate, run a script, run a flow, or trigger an extraction rule. Supports chord combos (e.g., `g` then `i` for GitHub Issues). Live conflict warnings for browser and extension collisions. |
 | **CSS Injection** | Inject custom stylesheets scoped to domains or URL patterns. Inject at `document_start` or `document_idle`. |
 | **URL Pattern Scoping** | Scope any automation to exact URLs, glob patterns, regex, or globally. Specificity rules determine priority. |
 | **Shortcut Conflict Detection** | Detects collisions between shortcuts and warns before saving. |
@@ -69,10 +69,10 @@ The goal is to be the single extension that replaces a collection of single-purp
 
 | Feature | Description |
 | --------- | ------------- |
-| **Flow Builder** | Chain actions into multi-step flows with conditions, loops, waits, and cross-tab navigation. |
+| **Flow Builder** | Chain actions into multi-step flows with conditions, loops, waits, cross-tab navigation, and `{{varName}}` interpolation for passing extracted data between nodes. Includes "Run Extraction Rule" node to reuse saved extraction rules. |
 | **Action Recorder** | Record click, type, and scroll sequences on a page, then replay or convert to scripts. |
 | **Element Picker** | Visually select page elements to auto-generate CSS selectors. |
-| **Data Extraction** | Define extraction rules with field selectors and output as JSON, CSV, Markdown, XML, HTML, or plain text. |
+| **Data Extraction** | Define extraction rules with field selectors, fallback selector chains (first non-empty match wins), post-extraction transforms (trim, lowercase, uppercase, strip HTML, normalize URL/whitespace, replace, regex replace), and output as JSON, CSV, Markdown, XML, HTML, or plain text. Live test button validates extraction against the current page. |
 | **Script Scheduling** | Schedule scripts to run at intervals or cron expressions via `chrome.alarms`. |
 | **Network Rules** | Block, redirect, or modify request headers using Chrome's `declarativeNetRequest` API. |
 | **Element Watcher** | Monitor DOM mutations and trigger actions when elements appear, change, or disappear. |
@@ -93,7 +93,7 @@ The goal is to be the single extension that replaces a collection of single-purp
 
 | Feature | Description |
 | --------- | ------------- |
-| **Selector Fallback** | Provides a try-list of alternative selectors when the primary one breaks. |
+| **Selector Fallback** | Multi-source selector chains per extraction field — add multiple CSS selectors tried in priority order; first non-empty result wins. Reorderable in the UI. |
 | **Smart Wait** | Detects SPA route changes, network idle, and framework renders (React, Vue) before executing. |
 | **Retry Policies** | Configurable exponential backoff retry on script failures. |
 | **Health Dashboard** | Monitors script failure rates, selector staleness, and storage usage. |
@@ -103,6 +103,7 @@ The goal is to be the single extension that replaces a collection of single-purp
 | Feature | Description |
 | --------- | ------------- |
 | **Profiles** | Group automations into switchable contexts (e.g., work vs. personal). |
+| **Duplicate** | One-click duplicate for any entity (flows, scripts, shortcuts, CSS rules, network rules, extraction rules) — opens a copy in the editor. |
 | **Import / Export** | Full JSON backup and restore with merge strategies. |
 | **Global Kill Switch** | Instantly disable all automations from the popup header. |
 | **Activity Log** | Timestamped, filterable log with virtual scrolling for 5,000+ entries. |
@@ -227,6 +228,19 @@ Build a flow that:
 
 Flows support conditions (`if element exists`), loops, and cross-tab steps.
 
+### Pass Extracted Data Between Flow Nodes
+
+Use `{{varName}}` to interpolate extracted values into subsequent nodes:
+
+1. **Extract Value** — selector: `h1.title`, output variable: `pageTitle`
+2. **Navigate** — URL: `https://google.com/search?q={{pageTitle}}`
+
+Variable interpolation works in Navigate URLs, Open Tab URLs, and Type Text fields. Each extract node also supports a **Test Extract** button to validate results live before running the full flow.
+
+### Reuse Extraction Rules in Flows
+
+Instead of configuring extraction inline, add a **Run Extraction Rule** node that references a saved extraction rule by name. All the rule's fields, transforms, fallback selectors, output format, and output actions are applied automatically.
+
 ### Use Shared Libraries
 
 Create a shared library called `dom-helpers`:
@@ -280,14 +294,16 @@ Secret values are masked in the UI and logs.
 
 Define an extraction rule for a product listing page:
 
-| Field | Selector | Attribute | Multiple |
-| ------- | ---------- | ----------- | ---------- |
-| `title` | `.product-card h2` | `textContent` | Yes |
-| `price` | `.product-card .price` | `textContent` | Yes |
-| `image` | `.product-card img` | `src` | Yes |
-| `link` | `.product-card a` | `href` | Yes |
+| Field | Selector(s) | Attribute | Multiple | Transforms |
+| ------- | ------------- | ----------- | ---------- | ------------ |
+| `title` | `.product-card h2` | `textContent` | Yes | Trim, Uppercase |
+| `price` | `.product-card .price`, `.card .cost` | `textContent` | Yes | Strip HTML, Trim |
+| `image` | `.product-card img` | `src` | Yes | Normalize URL |
+| `link` | `.product-card a` | `href` | Yes | Normalize URL |
 
-Output as JSON, CSV, or Markdown. Trigger manually, via shortcut, or on page load.
+Each field supports **multiple selector sources** — if the primary selector finds nothing, fallbacks are tried in order (first non-empty match wins). **Transforms** are applied after extraction: trim, lowercase, uppercase, strip HTML, normalize URL, collapse whitespace, find-and-replace, and regex replace.
+
+Output as JSON, CSV, Markdown, HTML, XML, or plain text. Trigger manually, via shortcut, or on page load. Use the **Test Extract** button to validate results against the current page before saving.
 
 ### Network Request Interception
 

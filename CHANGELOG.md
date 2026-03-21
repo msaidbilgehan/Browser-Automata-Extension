@@ -4,6 +4,36 @@ All notable changes to Browser Automata are documented in this file.
 
 ---
 
+## v0.2.0 — 2026-03-21
+
+> Extraction overhaul, flow reliability, and quality-of-life improvements across all entity views.
+
+### New Features
+
+- **Extraction Field Transforms** — Apply post-extraction transforms per field: trim, lowercase, uppercase, strip HTML, normalize URL, collapse whitespace, find-and-replace, and regex replace. Available in both extraction rules and flow extract nodes.
+- **Multiple Selector Sources (Fallback Chains)** — Each extraction field supports an ordered list of CSS selectors. Selectors are tried top-to-bottom; first non-empty match wins. Reorderable via up/down arrows in the UI. Supported in extraction rules and flow extract nodes.
+- **Flow "Run Extraction Rule" Node** — New flow node type that references a saved extraction rule by ID, reusing all its fields, transforms, fallback selectors, output format, and output actions. Eliminates duplication between flow extraction and standalone extraction rules.
+- **Flow Variable Interpolation** — Use `{{varName}}` syntax in Navigate URLs, Open Tab URLs, and Type Text fields to pass extracted values between flow nodes.
+- **Extraction Test Buttons** — Live "Test Extract" button on flow extract nodes and "Run Extraction Rule" nodes. Runs the extraction against the current page and shows inline results with copy/download support.
+- **Duplicate Button** — One-click duplicate for all 6 entity types (flows, scripts, shortcuts, CSS rules, network rules, extraction rules). Creates a copy with fresh ID, "(Copy)" suffix, and opens directly in the editor.
+- **Shortcut Key Conflict Warnings** — Real-time warnings when assigning keyboard shortcuts that conflict with browser defaults (Ctrl+T, F5, etc.) or other extension shortcuts/extraction rules in overlapping scopes. Displayed in both shortcuts and extraction rule editors.
+- **Run Flow Shortcut Action** — Shortcuts can now trigger flow execution. Added missing "Run Flow" action type to the shortcuts editor with a flow selector dropdown.
+
+### Bug Fixes
+
+- **Fixed "New Tab" blank page** — Extraction's "Show in New Tab" output action opened a blank tab because the popup closed before `executeScript` could write content. Delegated tab creation to the background service worker with `waitForTabReady` to ensure content is written after the tab loads.
+- **Fixed flow extract on CSP-restricted pages** — Flow extract nodes used `new Function()` in the MAIN world, which silently failed on pages with Content Security Policy. Rewrote to use the content script's `EXTRACT_DATA` message path (same reliable path as extraction rules and test buttons).
+- **Fixed flow navigate on CSP-restricted pages** — Navigate nodes used `window.location.href` via `injectAction` (MAIN world `new Function`), blocked by CSP. Replaced with `chrome.tabs.update` API which bypasses page restrictions and properly waits for page load.
+- **Fixed flow shortcut execution** — The "Run Flow" shortcut action type existed in the type system but execution was a no-op. Wired it to call `executeFlow()`.
+
+### Improvements
+
+- **Extraction engine unified** — All extraction paths (extraction rules, flow extract nodes, test buttons, shortcut-triggered extractions) now go through the same content script `extractFromDOM` function, ensuring consistent behavior regardless of trigger source.
+- **Result display helpers** — New `openResultTab` with `waitForTabReady` used by all "Show in New Tab" actions. New `injectResultWidget` for floating on-page result display with shadow DOM isolation.
+- **Editor draft persistence** — All entity editors persist unsaved drafts across popup close/reopen cycles (e.g., when element picker activation closes the popup). Draft indicators shown in list views.
+
+---
+
 ## v0.1.0 — 2026-03-21
 
 > Initial release. Power-tool-first Chrome extension (Manifest V3) that turns the browser into a programmable automation platform. Everything runs locally — no external servers, no data leaves your machine.
@@ -20,7 +50,7 @@ All notable changes to Browser Automata are documented in this file.
 
 - **Visual Element Picker** — Click-to-select any element with auto-generated CSS selectors, multiple fallback strategies (ID, data attributes, ARIA labels, classes, ancestors, XPath), robustness analysis, and match counts.
 - **Action Recorder** — Record click, text input, scroll, and navigation sequences. Auto-generates editable JavaScript with visual feedback and toast notifications.
-- **Structured Data Extraction** — Define field-level extraction rules with per-field selectors, attribute extraction, and multiple output formats (JSON, CSV, Markdown tables, HTML, XML, plain text). Trigger manually, by shortcut, or on page load.
+- **Structured Data Extraction** — Define field-level extraction rules with per-field selectors, attribute extraction, multiple output formats (JSON, CSV, Markdown tables, HTML, XML, plain text), and four output actions (show on page, show in new tab, copy to clipboard, download file). Trigger manually, by shortcut, or on page load.
 
 ### Scheduling & Monitoring
 
