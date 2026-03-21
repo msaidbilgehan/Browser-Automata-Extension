@@ -49,8 +49,22 @@ import type { Message } from "@/shared/types/messages";
 /**
  * Route an incoming message to the appropriate handler.
  * Returns the response to send back, or undefined if no handler matched.
+ * Each handler dispatch is wrapped in try-catch to return structured errors.
  */
 async function routeMessage(
+  message: Message,
+  sender: chrome.runtime.MessageSender,
+): Promise<unknown> {
+  try {
+    return await dispatchMessage(message, sender);
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.error(`[Browser Automata] Handler error for ${message.type}:`, err);
+    return { ok: false, error: errorMsg };
+  }
+}
+
+async function dispatchMessage(
   message: Message,
   sender: chrome.runtime.MessageSender,
 ): Promise<unknown> {
@@ -287,11 +301,13 @@ async function routeMessage(
       const testTabId = testTab?.id;
       if (!testTabId) return { ok: false, matchCount: 0 };
       try {
+        /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- chrome.tabs.sendMessage returns `any` */
         const result = await chrome.tabs.sendMessage(testTabId, {
           type: "TEST_SELECTOR",
           selector: message.selector,
         });
-        return { ok: true, matchCount: (result as { matchCount: number }).matchCount };
+        return { ok: true, matchCount: result.matchCount };
+        /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
       } catch {
         return { ok: false, matchCount: 0 };
       }

@@ -16,6 +16,9 @@ export default defineConfig({
     target: "esnext",
     minify: "esbuild",
     rollupOptions: {
+      input: {
+        results: resolve(__dirname, "src/results/index.html"),
+      },
       output: {
         chunkFileNames: "assets/[name]-[hash].js",
       },

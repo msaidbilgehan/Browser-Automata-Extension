@@ -2,7 +2,27 @@ import { localStore, syncStore } from "@/shared/storage";
 import { matchUrl } from "@/shared/url-pattern/matcher";
 import { appendLogEntry } from "@/background/handlers/log-handler";
 import type { EntityId, ExtractionRule, ExtractionOutputAction, ExtractionTrigger } from "@/shared/types/entities";
-import { injectResultWidget, writeResultPage } from "@/shared/result-display";
+import { injectResultWidget, buildResultPageHtml } from "@/shared/result-display";
+
+/** Validate extraction fields: each must have a non-empty name and selector. Returns only valid fields. */
+function validateFields<T extends { name: string; selector: string }>(
+  fields: T[],
+): { valid: T[]; errors: string[] } {
+  const valid: T[] = [];
+  const errors: string[] = [];
+  for (const f of fields) {
+    if (typeof f.name !== "string" || f.name.trim() === "") {
+      errors.push(`Field missing required "name" property`);
+      continue;
+    }
+    if (typeof f.selector !== "string" || f.selector.trim() === "") {
+      errors.push(`Field "${f.name}" missing required "selector" property`);
+      continue;
+    }
+    valid.push(f);
+  }
+  return { valid, errors };
+}
 
 /**
  * Ensure the content script is available on the tab. If not, inject it
@@ -53,26 +73,30 @@ export async function runExtraction(
   }
 
   try {
+    // Validate fields before sending to content script
+    const { valid: validFields, errors: fieldErrors } = validateFields(rule.fields);
+    if (validFields.length === 0) {
+      return { ok: false, error: `No valid fields: ${fieldErrors.join("; ")}` };
+    }
+    if (fieldErrors.length > 0) {
+      console.warn(`[Browser Automata] Skipped invalid fields for rule "${rule.name}":`, fieldErrors);
+    }
+
     await ensureContentScript(tabId);
 
+    /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- chrome.tabs.sendMessage returns `any` */
     const response = await chrome.tabs.sendMessage(tabId, {
       type: "EXTRACT_DATA",
       ruleId,
-      fields: rule.fields.map((f) => ({
-        name: f.name,
-        selector: f.selector,
-        fallbackSelectors: f.fallbackSelectors,
-        attribute: f.attribute,
-        multiple: f.multiple,
-        transforms: f.transforms,
-      })),
-    }) as { ok: boolean; data?: Record<string, unknown>[] } | undefined;
+      fields: validFields,
+    });
 
     if (!response?.ok) {
       throw new Error("Content script returned an error");
     }
 
-    const data = response.data ?? [];
+    const data: Record<string, unknown>[] = response.data ?? [];
+    /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
     const formatted = formatResults(data, rule.outputFormat);
 
     await appendLogEntry({
@@ -110,20 +134,28 @@ export async function testExtraction(
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) return { ok: false, error: "No active tab" };
 
+  // Validate fields before sending to content script
+  const { valid: validFields, errors: fieldErrors } = validateFields(fields);
+  if (validFields.length === 0) {
+    return { ok: false, error: `No valid fields: ${fieldErrors.join("; ")}` };
+  }
+
   try {
     await ensureContentScript(tab.id);
 
+    /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- chrome.tabs.sendMessage returns `any` */
     const response = await chrome.tabs.sendMessage(tab.id, {
       type: "EXTRACT_DATA",
       ruleId: "__test__",
-      fields,
-    }) as { ok: boolean; data?: Record<string, unknown>[] } | undefined;
+      fields: validFields,
+    });
 
     if (!response?.ok) {
       return { ok: false, error: "Content script returned an error" };
     }
 
-    const data = response.data ?? [];
+    const data: Record<string, unknown>[] = response.data ?? [];
+    /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
     const formatted = formatResults(data, outputFormat);
     return { ok: true, data, formatted };
   } catch (err) {
@@ -137,7 +169,7 @@ export async function testExtraction(
  * instead of `triggers`. This ensures consistent array access.
  */
 export function normalizeTriggers(rule: ExtractionRule): ExtractionTrigger[] {
-  if (rule.triggers && rule.triggers.length > 0) return rule.triggers;
+  if (rule.triggers.length > 0) return rule.triggers;
   // Legacy fallback: single string field
   const legacy = (rule as unknown as Record<string, unknown>)["trigger"] as ExtractionTrigger | undefined;
   if (legacy) return [legacy];
@@ -216,7 +248,6 @@ export async function processOutputActions(
   // Download via chrome.downloads API
   if (actions.includes("download")) {
     try {
-      if (!chrome.downloads?.download) throw new Error("downloads permission not granted");
       const safeName = (rule.name || "extraction").replace(/[^a-zA-Z0-9_-]/g, "_");
       const ext = FORMAT_EXTENSIONS[rule.outputFormat];
       const mime = FORMAT_MIME[rule.outputFormat];
@@ -256,31 +287,12 @@ export async function processOutputActions(
 }
 
 /**
- * Wait for a tab to finish loading (status === "complete").
- * Resolves immediately if the tab is already complete.
- */
-function waitForTabReady(tabId: number): Promise<void> {
-  return new Promise((resolve) => {
-    const listener = (id: number, info: chrome.tabs.TabChangeInfo) => {
-      if (id === tabId && info.status === "complete") {
-        chrome.tabs.onUpdated.removeListener(listener);
-        resolve();
-      }
-    };
-    chrome.tabs.onUpdated.addListener(listener);
-    // Check if already complete (race guard)
-    void chrome.tabs.get(tabId).then((tab) => {
-      if (tab.status === "complete") {
-        chrome.tabs.onUpdated.removeListener(listener);
-        resolve();
-      }
-    });
-  });
-}
-
-/**
  * Open a new tab and write extraction results into it.
  * Used by both popup (via EXTRACTION_SHOW_TAB message) and background output actions.
+ *
+ * Stores the pre-built HTML in chrome.storage.session, then opens the extension's
+ * dedicated results page which reads and renders it. This avoids the MV3 issue
+ * where chrome.scripting.executeScript fails on about:blank tabs.
  */
 export async function openResultTab(
   formatted: string,
@@ -289,15 +301,16 @@ export async function openResultTab(
   name: string,
   active = false,
 ): Promise<void> {
-  const newTab = await chrome.tabs.create({ active, url: "about:blank" });
-  if (newTab.id) {
-    await waitForTabReady(newTab.id);
-    await chrome.scripting.executeScript({
-      target: { tabId: newTab.id },
-      func: writeResultPage,
-      args: [formatted, format, rowCount, name],
-    });
-  }
+  const html = buildResultPageHtml(formatted, format, rowCount, name);
+
+  // Store the result HTML in session storage for the results page to read
+  await chrome.storage.session.set({
+    _resultPageData: { html, timestamp: Date.now() },
+  });
+
+  // Open the extension's dedicated result viewer page
+  const resultUrl = chrome.runtime.getURL("src/results/index.html");
+  await chrome.tabs.create({ active, url: resultUrl });
 }
 
 /**

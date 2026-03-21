@@ -40,6 +40,10 @@ const MIGRATIONS: Migration[] = [
 /**
  * Runs on extension install/update. Checks current schema version
  * and applies any pending migrations sequentially.
+ *
+ * Each migration step is wrapped in try-catch so a single failure
+ * does not leave the schema in an inconsistent state. The schema
+ * version is only bumped after a step succeeds.
  */
 export async function runMigrations(): Promise<void> {
   const currentVersion = (await localStore.get("schemaVersion")) ?? 0;
@@ -54,8 +58,18 @@ export async function runMigrations(): Promise<void> {
 
   for (const migration of pendingMigrations) {
     console.log(`[Browser Automata] Running migration to v${String(migration.version)}`);
-    await migration.migrate();
-    await localStore.set("schemaVersion", migration.version);
+    try {
+      await migration.migrate();
+      await localStore.set("schemaVersion", migration.version);
+      console.log(`[Browser Automata] Migration to v${String(migration.version)} succeeded`);
+    } catch (err) {
+      console.error(
+        `[Browser Automata] Migration to v${String(migration.version)} failed — stopping`,
+        err,
+      );
+      // Stop applying further migrations so we don't skip a step
+      return;
+    }
   }
 
   console.log(`[Browser Automata] Schema migrated to v${String(CURRENT_SCHEMA_VERSION)}`);

@@ -55,9 +55,20 @@ interface ResponseMap {
   CLEAR_TEST_HIGHLIGHT_POPUP: { ok: boolean };
 }
 
+/**
+ * Compile-time check: every PopupToSWMessage["type"] must have an entry in ResponseMap.
+ * If a new message type is added to PopupToSWMessage without a corresponding ResponseMap
+ * entry, this line will produce a type error.
+ */
+type AssertResponseMapComplete = {
+  [K in PopupToSWMessage["type"]]: K extends keyof ResponseMap ? true : never;
+};
+/** @internal Causes a compile error if ResponseMap is missing a message type */
+export type { AssertResponseMapComplete as _ResponseMapCheck };
+
 type MessageResponse<TMsg extends PopupToSWMessage> = TMsg["type"] extends keyof ResponseMap
   ? ResponseMap[TMsg["type"]]
-  : unknown;
+  : never;
 
 /**
  * Send a typed message from popup/options to the service worker.

@@ -83,7 +83,19 @@ export const useAppStore = create<AppState>((set, get) => {
     initialize: async () => {
       set({ loading: true, error: null });
       try {
-        const state = await sendToBackground({ type: "GET_STATE" });
+        // Try session cache first to avoid message round-trip on rapid popup re-opens
+        const SESSION_STATE_KEY = "_cachedState";
+        const TTL_MS = 2000;
+        const cached = await chrome.storage.session.get(SESSION_STATE_KEY);
+        const entry = cached[SESSION_STATE_KEY] as { ts: number; state: StateResponse } | undefined;
+        let state: StateResponse;
+        if (entry && Date.now() - entry.ts < TTL_MS) {
+          state = entry.state;
+        } else {
+          state = await sendToBackground({ type: "GET_STATE" });
+          // Cache for subsequent rapid re-opens
+          await chrome.storage.session.set({ [SESSION_STATE_KEY]: { ts: Date.now(), state } });
+        }
         set({
           settings: mergeWithDefaults(state.settings),
           counts: state.counts,

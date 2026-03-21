@@ -84,21 +84,33 @@ function waitForTabLoad(tabId: number, timeoutMs = 30_000): Promise<void> {
   });
 }
 
+// ─── Concurrent execution guard ──────────────────────────────────────────────
+
+/** Tracks flow IDs currently executing to prevent duplicate runs. */
+const runningFlows = new Set<EntityId>();
+
 // ─── Flow Execution ──────────────────────────────────────────────────────────
 
 /**
  * Execute a flow by walking its nodes sequentially.
+ * Prevents concurrent execution of the same flow.
  */
 export async function executeFlow(
   flowId: EntityId,
   tabId: number,
 ): Promise<{ ok: boolean; error?: string }> {
+  if (runningFlows.has(flowId)) {
+    return { ok: false, error: "Flow is already running" };
+  }
+
   const flows = (await localStore.get("flows")) ?? {};
   const flow = flows[flowId];
 
   if (!flow) {
     return { ok: false, error: "Flow not found" };
   }
+
+  runningFlows.add(flowId);
 
   // Initialize run state
   runState = {
@@ -163,6 +175,8 @@ export async function executeFlow(
       error: { name: "FlowExecutionError", message: errorMessage },
     });
     return { ok: false, error: errorMessage };
+  } finally {
+    runningFlows.delete(flowId);
   }
 }
 
@@ -297,6 +311,7 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
         // instead of MAIN-world new Function() which fails on CSP-restricted pages
         await ensureContentScript(ctx.tabId);
 
+        /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- chrome.tabs.sendMessage returns `any` */
         const extractResponse = await chrome.tabs.sendMessage(ctx.tabId, {
           type: "EXTRACT_DATA",
           ruleId: "__flow_extract__",
@@ -308,10 +323,11 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
             multiple: false,
             ...(config.transforms ? { transforms: config.transforms } : {}),
           }],
-        }) as { ok: boolean; data?: Record<string, string>[] } | undefined;
+        });
 
         const firstRow = extractResponse?.data?.[0];
-        const rawExtracted = firstRow ? (firstRow[config.outputVar || "value"] ?? null) : null;
+        const rawExtracted: unknown = firstRow ? (firstRow[config.outputVar || "value"] ?? null) : null;
+        /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
         const extractedValue = rawExtracted != null && rawExtracted !== "" ? rawExtracted : null;
 
         // Store value in window so subsequent nodes (navigate, type) can use {{varName}}
@@ -322,23 +338,24 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
             func: (varName: string, val: string) => {
               (window as unknown as Record<string, unknown>)[varName] = val;
             },
-            args: [config.outputVar, extractedValue],
+            args: [config.outputVar, typeof extractedValue === "string" ? extractedValue : JSON.stringify(extractedValue)],
           });
         }
 
         // Always log the extracted value for debugging
+        const extractedStr = extractedValue != null ? (typeof extractedValue === "string" ? extractedValue : JSON.stringify(extractedValue)) : null;
         addRunLog(
-          extractedValue != null ? "info" : "warning",
-          extractedValue != null
-            ? `Extracted "${config.outputVar}": ${String(extractedValue).slice(0, 500)}`
+          extractedStr != null ? "info" : "warning",
+          extractedStr != null
+            ? `Extracted "${config.outputVar}": ${extractedStr.slice(0, 500)}`
             : `Extract "${config.outputVar}" from "${config.selector}": no value found`,
         );
         await broadcastState();
 
         // Perform output actions if configured
         const actions = config.outputActions ?? [];
-        if (extractedValue != null && actions.length > 0) {
-          const formatted = String(extractedValue);
+        if (extractedStr != null && actions.length > 0) {
+          const formatted = extractedStr;
 
           if (actions.includes("clipboard")) {
             try {
@@ -354,6 +371,7 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
                     textarea.style.opacity = "0";
                     document.body.appendChild(textarea);
                     textarea.select();
+                    // eslint-disable-next-line @typescript-eslint/no-deprecated -- intentional fallback for contexts without clipboard API
                     document.execCommand("copy");
                     document.body.removeChild(textarea);
                   });
@@ -368,7 +386,6 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
 
           if (actions.includes("download")) {
             try {
-              if (!chrome.downloads?.download) throw new Error("downloads permission not granted");
               const dataUrl = `data:text/plain;charset=utf-8,${encodeURIComponent(formatted)}`;
               await chrome.downloads.download({
                 url: dataUrl,
@@ -517,7 +534,7 @@ async function resolveVariables(tabId: number, template: string): Promise<string
     func: (names: string[]) => names.map((n) => (window as unknown as Record<string, unknown>)[n] != null ? String((window as unknown as Record<string, unknown>)[n]) : ""),
     args: [varNames],
   });
-  const values = (results[0]?.result as string[] | undefined) ?? [];
+  const values = (results[0]?.result) ?? [];
   let resolved = template;
   varNames.forEach((name, i) => {
     resolved = resolved.replace(`{{${name}}}`, values[i] ?? "");
@@ -629,9 +646,9 @@ async function executeLoop(
         target: { tabId: ctx.tabId },
         world: "MAIN",
         func: (sel: string, snippet: string) => {
-          // eslint-disable-next-line @typescript-eslint/no-implied-eval
+          // eslint-disable-next-line @typescript-eslint/no-implied-eval, @typescript-eslint/no-unsafe-call
           new Function(snippet)();
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
           return !!(globalThis as any).__qsDeep(sel);
         },
         args: [config.untilSelector, DEEP_QUERY_SNIPPET],

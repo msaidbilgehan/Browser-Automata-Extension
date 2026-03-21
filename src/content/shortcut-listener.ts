@@ -9,6 +9,10 @@ let activeShortcuts: Shortcut[] = [];
 /** Whether the keydown listener has been registered */
 let listenerRegistered = false;
 
+/** Debounce: minimum 100ms between fires per shortcut ID */
+const DEBOUNCE_MS = 100;
+const lastFireTime = new Map<string, number>();
+
 /** Chord state machine */
 let chordState: "idle" | "chord_in_progress" = "idle";
 let chordBuffer: KeyCombo[] = [];
@@ -19,7 +23,7 @@ let chordCandidates: Shortcut[] = [];
 export function setActiveShortcuts(shortcuts: Shortcut[]): void {
   activeShortcuts = shortcuts;
   resetChordState();
-  console.debug(`[Browser Automata] Received ${shortcuts.length} shortcut(s) for this page`);
+  console.debug(`[Browser Automata] Received ${String(shortcuts.length)} shortcut(s) for this page`);
 }
 
 /** Get active shortcut count (for debugging) */
@@ -153,6 +157,12 @@ function formatKeyCombo(combo: KeyCombo | ChordCombo): string {
  * Shows a toast and highlights the target element where applicable.
  */
 function executeShortcutAction(shortcut: Shortcut): void {
+  // Debounce: skip if fired too recently
+  const now = Date.now();
+  const lastFire = lastFireTime.get(shortcut.id);
+  if (lastFire !== undefined && now - lastFire < DEBOUNCE_MS) return;
+  lastFireTime.set(shortcut.id, now);
+
   const toastCleanup = showKeyToast(formatKeyCombo(shortcut.keyCombo), shortcut.name);
   // Only register keyup listener when in key_release mode (cleanup is non-null)
   if (toastCleanup !== null) {
@@ -203,7 +213,9 @@ function executeShortcutAction(shortcut: Shortcut): void {
 /** Returns false when the extension has been reloaded/uninstalled and this content script is orphaned */
 function isContextValid(): boolean {
   try {
-    return chrome.runtime?.id !== undefined;
+    // Access chrome.runtime.id — throws if the extension context has been invalidated
+    void chrome.runtime.id;
+    return true;
   } catch {
     return false;
   }
@@ -232,7 +244,7 @@ function handleKeyDown(e: KeyboardEvent): void {
   ) {
     console.debug(
       `[Browser Automata] keydown ignored — target is editable:`,
-      (target as HTMLElement).tagName,
+      (target).tagName,
       target,
     );
     return;

@@ -145,10 +145,12 @@ export function injectResultWidget(
     </div>
   `;
 
-  const closeBtn = shadow.querySelector(".close-btn") as HTMLButtonElement;
-  const copyBtn = shadow.querySelector('[data-action="copy"]') as HTMLButtonElement;
-  const downloadBtn = shadow.querySelector('[data-action="download"]') as HTMLButtonElement;
-  const header = shadow.querySelector(".header") as HTMLElement;
+  const closeBtn = shadow.querySelector(".close-btn");
+  const copyBtn = shadow.querySelector('[data-action="copy"]');
+  const downloadBtn = shadow.querySelector('[data-action="download"]');
+  const header = shadow.querySelector(".header");
+
+  if (!closeBtn || !copyBtn || !downloadBtn || !header) return;
 
   closeBtn.addEventListener("click", () => { host.remove(); });
 
@@ -181,10 +183,11 @@ export function injectResultWidget(
   let dragY = 0;
   let isDragging = false;
 
-  header.addEventListener("mousedown", (e: MouseEvent) => {
+  header.addEventListener("mousedown", (e: Event) => {
+    const me = e as MouseEvent;
     isDragging = true;
-    dragX = e.clientX - host.getBoundingClientRect().left;
-    dragY = e.clientY - host.getBoundingClientRect().top;
+    dragX = me.clientX - host.getBoundingClientRect().left;
+    dragY = me.clientY - host.getBoundingClientRect().top;
     host.style.transition = "none";
   });
 
@@ -204,15 +207,15 @@ export function injectResultWidget(
 }
 
 /**
- * Write extraction results into the current document (for about:blank tabs).
- * Called via `chrome.scripting.executeScript({ func: writeResultPage, args: [...] })`.
+ * Build the full HTML string for a result page.
+ * Runs in the service worker (no DOM access needed).
  */
-export function writeResultPage(
+export function buildResultPageHtml(
   formatted: string,
   format: string,
   rowCount: number,
   name: string,
-): void {
+): string {
   const escaped = formatted
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -336,6 +339,20 @@ export function writeResultPage(
 </body>
 </html>`;
 
+  return html;
+}
+
+/**
+ * Write extraction results into the current document (for about:blank tabs).
+ * Called via `chrome.scripting.executeScript({ func: writeResultPage, args: [...] })`.
+ */
+export function writeResultPage(
+  formatted: string,
+  format: string,
+  rowCount: number,
+  name: string,
+): void {
+  const html = buildResultPageHtml(formatted, format, rowCount, name);
   document.open();
   document.write(html);
   document.close();

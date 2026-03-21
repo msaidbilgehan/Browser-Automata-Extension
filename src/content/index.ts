@@ -15,7 +15,9 @@ import { updateHighlightSettings } from "./action-highlight";
 /** Returns false when the extension has been reloaded/uninstalled and this content script is orphaned */
 function isContextValid(): boolean {
   try {
-    return chrome.runtime?.id !== undefined;
+    // Access chrome.runtime.id — throws if the extension context has been invalidated
+    void chrome.runtime.id;
+    return true;
   } catch {
     return false;
   }
@@ -76,7 +78,7 @@ function scheduleRetryIfNeeded(): void {
     if (getActiveShortcutCount() > 0) return; // shortcuts already received
     contentReadyRetries++;
     console.debug(
-      `[Browser Automata] No shortcuts received yet, retrying CONTENT_READY (attempt ${contentReadyRetries})`,
+      `[Browser Automata] No shortcuts received yet, retrying CONTENT_READY (attempt ${String(contentReadyRetries)})`,
     );
     chrome.runtime.sendMessage({ type: "CONTENT_READY", url: location.href, isRetry: true }).catch(() => {
       // Service worker may not be ready yet
@@ -95,35 +97,41 @@ chrome.runtime.onMessage.addListener(
     if (!isSWToContentMessage(message)) {
       return false;
     }
-    switch (message.type) {
-      case "PING":
-        sendResponse({ ok: true });
-        break;
-      case "UPDATE_SHORTCUTS":
-        setActiveShortcuts(message.shortcuts);
-        break;
-      case "START_RECORDING":
-        startRecording();
-        break;
-      case "STOP_RECORDING":
-        stopRecording();
-        break;
-      case "PICK_ELEMENT":
-        startPicking();
-        break;
-      case "EXTRACT_DATA": {
-        const results = extractFromDOM(message.fields);
-        sendResponse({ ok: true, data: results });
-        return true;
+    try {
+      switch (message.type) {
+        case "PING":
+          sendResponse({ ok: true });
+          break;
+        case "UPDATE_SHORTCUTS":
+          setActiveShortcuts(message.shortcuts);
+          break;
+        case "START_RECORDING":
+          startRecording();
+          break;
+        case "STOP_RECORDING":
+          stopRecording();
+          break;
+        case "PICK_ELEMENT":
+          startPicking();
+          break;
+        case "EXTRACT_DATA": {
+          const results = extractFromDOM(message.fields);
+          sendResponse({ ok: true, data: results });
+          return true;
+        }
+        case "TEST_SELECTOR": {
+          const matchCount = highlightSelector(message.selector);
+          sendResponse({ matchCount });
+          return true;
+        }
+        case "CLEAR_TEST_HIGHLIGHT":
+          clearHighlights();
+          break;
       }
-      case "TEST_SELECTOR": {
-        const matchCount = highlightSelector(message.selector);
-        sendResponse({ matchCount });
-        return true;
-      }
-      case "CLEAR_TEST_HIGHLIGHT":
-        clearHighlights();
-        break;
+    } catch (err) {
+      console.error("[Browser Automata] Error handling message:", message.type, err);
+      sendResponse({ ok: false, error: err instanceof Error ? err.message : "Unknown error" });
+      return true;
     }
     return false;
   },

@@ -21,7 +21,7 @@ export function startWatching(
   selector: string,
   callback: (found: boolean) => void,
 ): string {
-  const watchId = generateId() as unknown as string;
+  const watchId: string = generateId();
 
   const entry: WatcherEntry = { watchId, tabId, selector, callback };
   activeWatchers.set(watchId, entry);
@@ -63,6 +63,18 @@ export function startWatching(
   watcherListeners.set(watchId, messageListener);
 
   return watchId;
+}
+
+/**
+ * Stop all active watchers and clean up resources.
+ * Call this on flow completion or extension shutdown to prevent leaks.
+ */
+export function stopAllWatchers(): void {
+  // Collect IDs first to avoid mutating the map during iteration
+  const ids = Array.from(activeWatchers.keys());
+  for (const id of ids) {
+    stopWatching(id);
+  }
 }
 
 /**
