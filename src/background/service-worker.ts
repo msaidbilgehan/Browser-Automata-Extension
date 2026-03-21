@@ -39,8 +39,8 @@ async function reinitializeAllTabs(): Promise<void> {
       injectPageLoadScripts(tabId, url),
       injectMatchingCSS(tabId, url),
       pushShortcutsToTab(tabId, url),
-    ]).catch((err) => {
-      console.warn(`[Browser Automata] Failed to reinitialize tab ${tabId}:`, err);
+    ]).catch((err: unknown) => {
+      console.warn(`[Browser Automata] Failed to reinitialize tab ${String(tabId)}:`, err);
     });
   }
 }

@@ -22,7 +22,7 @@ export function Toggle({ checked, onChange, label, size = "md", disabled = false
         onClick={() => {
           onChange(!checked);
         }}
-        className={`relative inline-flex shrink-0 rounded-full transition-colors duration-200 ${trackSize} ${checked ? "bg-active" : "bg-bg-tertiary"} ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"} `}
+        className={`relative inline-flex shrink-0 rounded-full transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-active ${trackSize} ${checked ? "bg-active" : "bg-bg-tertiary"} ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"} `}
       >
         <span
           className={`inline-block rounded-full bg-white shadow transition-transform duration-200 ${thumbSize} ${checked ? thumbTranslate : "translate-x-0.5"} mt-0.5`}

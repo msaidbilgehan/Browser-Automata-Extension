@@ -733,7 +733,7 @@ function updatePanelSelection(): void {
 /** Send the picked selector result and clean up */
 function sendPickedResult(selector: string, alternatives: SelectorAlternative[]): void {
   try {
-    if (chrome.runtime?.id === undefined) return;
+    void chrome.runtime.id; // Throws if extension context is invalidated
   } catch {
     return;
   }
@@ -831,7 +831,7 @@ function onClick(e: MouseEvent): void {
     const target = e.target;
     if (target instanceof Node) {
       const widgetRoot = document.querySelector("[data-ba-selector-widget]");
-      if (widgetRoot !== null && widgetRoot.contains(target)) {
+      if (widgetRoot?.contains(target)) {
         // Click is inside the widget — let it through to widget handlers
         return;
       }
@@ -870,10 +870,10 @@ function onClick(e: MouseEvent): void {
 
   // Generate alternatives for the clicked element
   const alternatives = generateSelectorAlternatives(currentTarget);
-  const bestSelector =
-    alternatives.length > 0
-      ? alternatives[0]!.selector
-      : generateSelector(currentTarget);
+  const firstAlt = alternatives[0];
+  const bestSelector = firstAlt !== undefined
+    ? firstAlt.selector
+    : generateSelector(currentTarget);
 
   // Freeze hover tracking while widget is open
   document.removeEventListener("mouseover", onMouseOver, true);

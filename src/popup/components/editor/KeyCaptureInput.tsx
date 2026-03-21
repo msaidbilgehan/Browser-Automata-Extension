@@ -8,6 +8,7 @@ interface KeyCaptureInputProps {
 }
 
 /** Format a KeyCombo as a human-readable string */
+// eslint-disable-next-line react-refresh/only-export-components
 export function formatKeyCombo(combo: KeyCombo): string {
   const parts: string[] = [];
   if (combo.ctrlKey) parts.push("Ctrl");

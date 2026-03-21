@@ -27,11 +27,11 @@ export async function findElement(tabId: number, selectors: string[]): Promise<F
   const results = await chrome.scripting.executeScript({
     target: { tabId },
     func: (sels: string[], snippet: string) => {
-      // eslint-disable-next-line @typescript-eslint/no-implied-eval
+      // eslint-disable-next-line @typescript-eslint/no-implied-eval, @typescript-eslint/no-unsafe-call
       new Function(snippet)();
       for (let i = 0; i < sels.length; i++) {
         const sel = sels[i];
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
         if (sel !== undefined && (globalThis as any).__qsDeep(sel)) {
           return { found: true, usedIndex: i, selector: sel };
         }
@@ -58,9 +58,9 @@ export async function testSelectorStaleness(tabId: number, selector: string): Pr
   const results = await chrome.scripting.executeScript({
     target: { tabId },
     func: (sel: string, snippet: string) => {
-      // eslint-disable-next-line @typescript-eslint/no-implied-eval
+      // eslint-disable-next-line @typescript-eslint/no-implied-eval, @typescript-eslint/no-unsafe-call
       new Function(snippet)();
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
       return (globalThis as any).__qsDeep(sel) !== null;
     },
     args: [selector, DEEP_QUERY_SNIPPET],

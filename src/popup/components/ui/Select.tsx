@@ -22,7 +22,7 @@ export function Select({ label, id, options, className = "", ...props }: SelectP
       ) : null}
       <select
         id={selectId}
-        className={`border-border bg-bg-tertiary text-text-primary focus:border-border-active rounded-md border px-2.5 py-1.5 text-xs transition-colors outline-none ${className} `}
+        className={`border-border bg-bg-tertiary text-text-primary focus:border-border-active focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-active rounded-md border px-2.5 py-1.5 text-xs transition-colors outline-none ${className} `}
         {...props}
       >
         {options.map((opt) => (

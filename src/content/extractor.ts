@@ -97,12 +97,12 @@ export function extractFromDOM(fields: FieldSpec[]): Record<string, string>[] {
   let maxRows = 1;
 
   for (const field of fields) {
-    const attr = field.attribute || "textContent";
+    const attr = field.attribute ?? "textContent";
     const selectors = getSelectorsInOrder(field);
 
     if (field.multiple) {
       // Try each selector in order; first one with results wins
-      let values: string[] = [];
+      const values: string[] = [];
       for (const sel of selectors) {
         const elements = querySelectorAllDeep(sel);
         if (elements.length > 0) {

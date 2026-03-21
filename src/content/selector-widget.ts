@@ -616,8 +616,8 @@ function makeDraggable(widget: HTMLDivElement, handle: HTMLDivElement): void {
     const target = e.target as Node;
     if (target !== handle && target.parentNode !== handle) {
       // Click on a deeply nested child (e.g. close button) — don't start drag
-      const closestBtn = (target as Element).closest?.("button");
-      if (closestBtn !== null && closestBtn !== undefined) return;
+      const closestBtn = (target as Element).closest("button");
+      if (closestBtn !== null) return;
     }
     isDragging = true;
     startX = e.clientX;

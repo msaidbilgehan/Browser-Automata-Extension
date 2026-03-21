@@ -25,7 +25,7 @@ export function Card({ children, onClick, className = "", disabled = false }: Ca
             }
           : undefined
       }
-      className={`border-border bg-bg-secondary rounded-lg border p-3 ${interactive ? "hover:border-border-active cursor-pointer transition-colors" : ""} ${disabled ? "cursor-not-allowed opacity-50" : ""} ${className} `}
+      className={`border-border bg-bg-secondary rounded-lg border p-3 ${interactive ? "hover:border-border-active focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-active cursor-pointer transition-colors" : ""} ${disabled ? "cursor-not-allowed opacity-50" : ""} ${className} `}
     >
       {children}
     </div>

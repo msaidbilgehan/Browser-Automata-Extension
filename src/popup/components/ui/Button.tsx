@@ -29,7 +29,7 @@ export function Button({
     <button
       type="button"
       disabled={disabled}
-      className={`inline-flex items-center justify-center rounded-md font-medium transition-colors duration-150 ${sizeClass} ${VARIANT_CLASSES[variant]} ${disabled ? "cursor-not-allowed opacity-50" : ""} ${className} `}
+      className={`inline-flex items-center justify-center rounded-md font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-active ${sizeClass} ${VARIANT_CLASSES[variant]} ${disabled ? "cursor-not-allowed opacity-50" : ""} ${className} `}
       {...props}
     >
       {children}

@@ -58,7 +58,7 @@ export const useExtractionRulesStore = create<ExtractionRulesState>((set) => {
     runNow: async (id) => {
       const raw = await sendToBackground({ type: "EXTRACTION_RUN_NOW", ruleId: id });
       // Guard against undefined responses (service worker messaging edge cases)
-      const result = raw ?? { ok: false, error: "No response from background" };
+      const result = raw;
       set({ lastResult: result });
       return result;
     },

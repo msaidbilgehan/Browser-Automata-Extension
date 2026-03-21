@@ -54,8 +54,10 @@ export function SelectorSourceList({
   const moveUp = (index: number) => {
     if (index <= 0) return;
     const next = [...allSelectors];
-    const temp = next[index - 1]!;
-    next[index - 1] = next[index]!;
+    const temp = next[index - 1];
+    const current = next[index];
+    if (temp === undefined || current === undefined) return;
+    next[index - 1] = current;
     next[index] = temp;
     updateAll(next);
   };
@@ -63,8 +65,10 @@ export function SelectorSourceList({
   const moveDown = (index: number) => {
     if (index >= allSelectors.length - 1) return;
     const next = [...allSelectors];
-    const temp = next[index + 1]!;
-    next[index + 1] = next[index]!;
+    const temp = next[index + 1];
+    const current = next[index];
+    if (temp === undefined || current === undefined) return;
+    next[index + 1] = current;
     next[index] = temp;
     updateAll(next);
   };

@@ -23,7 +23,7 @@ export async function handleExtractionRuleSave(rule: ExtractionRule): Promise<{ 
   const triggers = normalizeTriggers(rule);
   const hasShortcutTrigger = triggers.includes("shortcut");
 
-  if (hasShortcutTrigger && rule.shortcutKeyCombo && rule.shortcutKeyCombo.key) {
+  if (hasShortcutTrigger && rule.shortcutKeyCombo?.key) {
     const timestamp = now();
     if (existing) {
       // Update existing linked shortcut

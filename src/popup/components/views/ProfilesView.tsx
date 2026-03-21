@@ -219,14 +219,14 @@ export function ProfilesView() {
 
   useEffect(() => {
     if (!editingId && !newProfile) {
-      void loadAllDrafts("profiles").then((map) => setDraftIds(new Set(Object.keys(map))));
+      void loadAllDrafts("profiles").then((map) => { setDraftIds(new Set(Object.keys(map))); });
     }
   }, [editingId, newProfile]);
 
   const profileList = useMemo(
     () =>
       Object.values(profiles)
-        .filter((s): s is Profile => s != null && typeof s.name === "string")
+        .filter((s): s is Profile => typeof s.name === "string")
         .sort((a, b) => a.name.localeCompare(b.name)),
     [profiles],
   );

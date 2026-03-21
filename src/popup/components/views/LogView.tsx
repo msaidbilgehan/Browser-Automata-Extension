@@ -178,9 +178,9 @@ export function LogView() {
                 >
                   <LogEntry
                     entry={entry}
-                    onToggle={() => virtualizer.measureElement(
+                    onToggle={() => { virtualizer.measureElement(
                       parentRef.current?.querySelector(`[data-index="${String(virtualItem.index)}"]`) as HTMLElement | null
-                    )}
+                    ); }}
                   />
                 </div>
               );

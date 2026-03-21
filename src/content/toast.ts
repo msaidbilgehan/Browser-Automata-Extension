@@ -136,7 +136,7 @@ function repositionToasts(): void {
   for (let i = activeToasts.length - 1; i >= 0; i--) {
     const el = activeToasts[i];
     if (el === undefined) continue;
-    el.style.bottom = `${offset}px`;
+    el.style.bottom = `${String(offset)}px`;
     offset += el.offsetHeight + 8;
   }
 }

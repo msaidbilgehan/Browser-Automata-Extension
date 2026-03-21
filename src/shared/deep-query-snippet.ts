@@ -120,7 +120,7 @@ function isXPathSelector(selector: string): boolean {
 /** Evaluate an XPath expression, returning all matching elements. */
 function xpathEvalAll(expr: string, root: Document | ShadowRoot): Element[] {
   const doc = root instanceof Document ? root : root.ownerDocument;
-  const contextNode = root instanceof Document ? root : root.host ?? root;
+  const contextNode = root instanceof Document ? root : root.host;
   const out: Element[] = [];
   try {
     const result = doc.evaluate(expr, contextNode, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
@@ -137,7 +137,7 @@ function xpathEvalAll(expr: string, root: Document | ShadowRoot): Element[] {
 /** Evaluate an XPath expression, returning the first matching element. */
 function xpathEvalFirst(expr: string, root: Document | ShadowRoot): Element | null {
   const doc = root instanceof Document ? root : root.ownerDocument;
-  const contextNode = root instanceof Document ? root : root.host ?? root;
+  const contextNode = root instanceof Document ? root : root.host;
   try {
     const result = doc.evaluate(expr, contextNode, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
     const node = result.singleNodeValue;
@@ -158,9 +158,8 @@ export function inlineDeepQueryAll(
   if (isXPathSelector(selector)) {
     for (const el of xpathEvalAll(selector, searchRoot)) out.push(el);
     const allElements = searchRoot.querySelectorAll("*");
-    for (let j = 0; j < allElements.length; j++) {
-      const el = allElements[j];
-      if (el !== undefined && el.shadowRoot !== null) {
+    for (const el of allElements) {
+      if (el.shadowRoot !== null) {
         for (const sel of xpathEvalAll(selector, el.shadowRoot)) out.push(sel);
         const inner = inlineDeepQueryAll(selector, el.shadowRoot);
         for (const el2 of inner) out.push(el2);
@@ -171,23 +170,20 @@ export function inlineDeepQueryAll(
 
   try {
     const matches = searchRoot.querySelectorAll(selector);
-    for (let i = 0; i < matches.length; i++) {
-      const m = matches[i];
-      if (m !== undefined) out.push(m);
+    for (const m of matches) {
+      out.push(m);
     }
   } catch {
     // invalid selector
   }
   const allElements = searchRoot.querySelectorAll("*");
-  for (let j = 0; j < allElements.length; j++) {
-    const el = allElements[j];
-    if (el !== undefined && el.shadowRoot !== null) {
+  for (const el of allElements) {
+    if (el.shadowRoot !== null) {
       const shadowRoot = el.shadowRoot;
       try {
         const shadowMatches = shadowRoot.querySelectorAll(selector);
-        for (let k = 0; k < shadowMatches.length; k++) {
-          const sm = shadowMatches[k];
-          if (sm !== undefined) out.push(sm);
+        for (const sm of shadowMatches) {
+          out.push(sm);
         }
       } catch {
         // skip
@@ -211,9 +207,8 @@ export function inlineDeepQuery(
     const match = xpathEvalFirst(selector, searchRoot);
     if (match !== null) return match;
     const allElements = searchRoot.querySelectorAll("*");
-    for (let i = 0; i < allElements.length; i++) {
-      const el = allElements[i];
-      if (el !== undefined && el.shadowRoot !== null) {
+    for (const el of allElements) {
+      if (el.shadowRoot !== null) {
         const found = inlineDeepQuery(selector, el.shadowRoot);
         if (found !== null) return found;
       }
@@ -228,9 +223,8 @@ export function inlineDeepQuery(
     // skip
   }
   const allElements = searchRoot.querySelectorAll("*");
-  for (let i = 0; i < allElements.length; i++) {
-    const el = allElements[i];
-    if (el !== undefined && el.shadowRoot !== null) {
+  for (const el of allElements) {
+    if (el.shadowRoot !== null) {
       const found = inlineDeepQuery(selector, el.shadowRoot);
       if (found !== null) return found;
     }

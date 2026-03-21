@@ -73,9 +73,9 @@ export async function waitForElement(
   const results = await chrome.scripting.executeScript({
     target: { tabId },
     func: (sel: string, timeout: number, snippet: string) => {
-      // eslint-disable-next-line @typescript-eslint/no-implied-eval
+      // eslint-disable-next-line @typescript-eslint/no-implied-eval, @typescript-eslint/no-unsafe-call
       new Function(snippet)();
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
       const qsDeep = (s: string) => (globalThis as any).__qsDeep(s);
 
       return new Promise<boolean>((resolve) => {
@@ -143,10 +143,10 @@ export async function waitForNetworkIdle(
         const origXhrSend = XMLHttpRequest.prototype.send;
         /* eslint-enable @typescript-eslint/unbound-method */
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         XMLHttpRequest.prototype.open = function (
           this: XMLHttpRequest,
-          ...args: [string, string | URL, ...any[]]
+          ...args: [string, string | URL, ...unknown[]]
         ) {
           this.addEventListener("loadend", () => {
             pendingRequests = Math.max(0, pendingRequests - 1);

@@ -126,7 +126,7 @@ function ShortcutEditor({
       const flows = data ?? {};
       setFlowOptions(
         Object.values(flows)
-          .filter((f): f is Flow => f != null && typeof f.name === "string")
+          .filter((f): f is Flow => typeof f.name === "string")
           .sort((a, b) => a.name.localeCompare(b.name))
           .map((f) => ({ value: f.id, label: f.name || "Untitled" })),
       );
@@ -136,6 +136,21 @@ function ShortcutEditor({
   const patch = useCallback(<K extends keyof Shortcut>(key: K, value: Shortcut[K]) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
   }, [setDraft]);
+
+  const handleKeyComboChange = useCallback(
+    (combo: KeyCombo) => { patch("keyCombo", combo); },
+    [patch],
+  );
+
+  const handleScopeChange = useCallback(
+    (scope: Shortcut["scope"]) => { patch("scope", scope); },
+    [patch],
+  );
+
+  const handleEnabledChange = useCallback(
+    (enabled: boolean) => { patch("enabled", enabled); },
+    [patch],
+  );
 
   const setActionType = (type: ShortcutAction["type"]) => {
     let action: ShortcutAction;
@@ -247,9 +262,7 @@ function ShortcutEditor({
         <KeyCaptureInput
           label="Key Combo"
           value={isKeyCombo(draft.keyCombo) ? draft.keyCombo : null}
-          onChange={(combo) => {
-            patch("keyCombo", combo);
-          }}
+          onChange={handleKeyComboChange}
         />
         {keyConflicts.length > 0 && (
           <div className="flex flex-col gap-0.5">
@@ -365,17 +378,13 @@ function ShortcutEditor({
         <UrlPatternInput
           label="Scope"
           value={draft.scope}
-          onChange={(scope) => {
-            patch("scope", scope);
-          }}
+          onChange={handleScopeChange}
         />
 
         <div className="flex items-center justify-between pt-1">
           <Toggle
             checked={draft.enabled}
-            onChange={(enabled) => {
-              patch("enabled", enabled);
-            }}
+            onChange={handleEnabledChange}
             label="Enabled"
             size="sm"
           />
@@ -402,7 +411,7 @@ export function ShortcutsView() {
 
   useEffect(() => {
     if (!editingId && !newShortcut) {
-      void loadAllDrafts("shortcuts").then((map) => setDraftIds(new Set(Object.keys(map))));
+      void loadAllDrafts("shortcuts").then((map) => { setDraftIds(new Set(Object.keys(map))); });
     }
   }, [editingId, newShortcut]);
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, memo } from "react";
 import {
   TableProperties,
   Plus,
@@ -56,7 +56,7 @@ const OUTPUT_ACTION_OPTIONS: { value: ExtractionOutputAction; label: string }[] 
  * Normalize legacy `trigger` (string) to `triggers` (array) for UI display.
  */
 function normalizeTriggers(rule: ExtractionRule): ExtractionTrigger[] {
-  if (rule.triggers && rule.triggers.length > 0) return rule.triggers;
+  if (rule.triggers.length > 0) return rule.triggers;
   const legacy = (rule as unknown as Record<string, unknown>)["trigger"] as ExtractionTrigger | undefined;
   if (legacy) return [legacy];
   return ["manual"];
@@ -86,7 +86,7 @@ function scopeLabel(scope: UrlPattern): string {
   return scope.type === "global" ? "Global" : scope.value || scope.type;
 }
 
-function TriggerCheckboxes({
+const TriggerCheckboxes = memo(function TriggerCheckboxes({
   value,
   onChange,
 }: {
@@ -137,9 +137,9 @@ function TriggerCheckboxes({
       </div>
     </div>
   );
-}
+});
 
-function OutputActionCheckboxes({
+const OutputActionCheckboxes = memo(function OutputActionCheckboxes({
   value,
   onChange,
 }: {
@@ -180,9 +180,9 @@ function OutputActionCheckboxes({
       </div>
     </div>
   );
-}
+});
 
-function FieldMappingTable({
+const FieldMappingTable = memo(function FieldMappingTable({
   ruleId,
   fields,
   onChange,
@@ -289,7 +289,7 @@ function FieldMappingTable({
       )}
     </div>
   );
-}
+});
 
 function ExtractionRuleEditor({
   initial,
@@ -314,7 +314,7 @@ function ExtractionRuleEditor({
   // Migrate legacy rules: normalize triggers and strip removed "show" action
   const effectiveDraft = useMemo(() => {
     const triggers = normalizeTriggers(draft);
-    const outputActions = (draft.outputActions ?? []).filter((a) => a !== "show");
+    const outputActions = draft.outputActions.filter((a) => a !== "show");
     return { ...draft, triggers, outputActions };
   }, [draft]);
 
@@ -327,6 +327,18 @@ function ExtractionRuleEditor({
   const patch = useCallback(<K extends keyof ExtractionRule>(key: K, value: ExtractionRule[K]) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
   }, [setDraft]);
+
+  const handleTriggersChange = useCallback((triggers: ExtractionTrigger[]) => {
+    patch("triggers", triggers);
+  }, [patch]);
+
+  const handleOutputActionsChange = useCallback((actions: ExtractionOutputAction[]) => {
+    patch("outputActions", actions);
+  }, [patch]);
+
+  const handleFieldsChange = useCallback((fields: ExtractionField[]) => {
+    patch("fields", fields);
+  }, [patch]);
 
   const handlePickStart = useCallback(async () => {
     await saveEditorDraft({
@@ -367,12 +379,6 @@ function ExtractionRuleEditor({
       };
       await save(updated);
       const result = await runNow(effectiveDraft.id);
-
-      if (!result) {
-        // Response was undefined — messaging failed silently
-        clearResult();
-        return;
-      }
 
       const actions = effectiveDraft.outputActions;
       const formatted = result.formatted;
@@ -518,9 +524,7 @@ function ExtractionRuleEditor({
 
         <TriggerCheckboxes
           value={effectiveDraft.triggers}
-          onChange={(triggers) => {
-            patch("triggers", triggers);
-          }}
+          onChange={handleTriggersChange}
         />
 
         {effectiveDraft.triggers.includes("shortcut") && (
@@ -555,18 +559,14 @@ function ExtractionRuleEditor({
 
         <OutputActionCheckboxes
           value={effectiveDraft.outputActions}
-          onChange={(actions) => {
-            patch("outputActions", actions);
-          }}
+          onChange={handleOutputActionsChange}
         />
 
         <FieldMappingTable
           ruleId={effectiveDraft.id}
           fields={effectiveDraft.fields}
-          onChange={(fields) => {
-            patch("fields", fields);
-          }}
-          onPickStart={handlePickStart}
+          onChange={handleFieldsChange}
+          onPickStart={() => void handlePickStart()}
         />
 
         {/* Result panel */}
@@ -634,7 +634,7 @@ export function ExtractionView() {
 
   useEffect(() => {
     if (!editingId && !newRule) {
-      void loadAllDrafts("extraction").then((map) => setDraftIds(new Set(Object.keys(map))));
+      void loadAllDrafts("extraction").then((map) => { setDraftIds(new Set(Object.keys(map))); });
     }
   }, [editingId, newRule]);
 
@@ -655,7 +655,7 @@ export function ExtractionView() {
   const ruleList = useMemo(
     () =>
       Object.values(extractionRules)
-        .filter((s): s is ExtractionRule => s != null && typeof s.name === "string")
+        .filter((s): s is ExtractionRule => typeof s.name === "string")
         .sort((a, b) => a.name.localeCompare(b.name)),
     [extractionRules],
   );
@@ -757,9 +757,10 @@ export function ExtractionView() {
                   onClick={(e) => {
                     e.stopPropagation();
                     const ts = now();
-                    const { shortcutKeyCombo: _, ...rest } = rule;
+                    const copy = { ...rule };
+                    delete (copy as Record<string, unknown>)["shortcutKeyCombo"];
                     setNewRule({
-                      ...rest,
+                      ...copy,
                       id: generateId(),
                       name: `${rule.name || "Untitled"} (Copy)`,
                       meta: { createdAt: ts, updatedAt: ts },

@@ -31,7 +31,7 @@ export async function pushShortcutsToTab(tabId: number, url: string): Promise<vo
   } catch (err) {
     // Tab may not have content script ready yet — expected for non-http tabs
     // or tabs still loading. Log at debug level for troubleshooting.
-    console.debug(`[Browser Automata] pushShortcutsToTab(${tabId}) failed:`, err);
+    console.debug(`[Browser Automata] pushShortcutsToTab(${String(tabId)}) failed:`, err);
   }
 }
 

@@ -57,7 +57,7 @@ export function FlowRunWidget() {
   // Load initial state + subscribe to session storage changes
   useEffect(() => {
     // Load current state
-    chrome.storage.session.get(SESSION_KEY).then((result) => {
+    void chrome.storage.session.get(SESSION_KEY).then((result) => {
       const state = result[SESSION_KEY] as FlowRunState | undefined;
       if (state) setRunState(state);
     });
@@ -67,14 +67,14 @@ export function FlowRunWidget() {
       areaName: string,
     ) => {
       if (areaName === "session" && SESSION_KEY in changes) {
-        const state = changes[SESSION_KEY]?.newValue as FlowRunState | undefined;
+        const state = changes[SESSION_KEY].newValue as FlowRunState | undefined;
         setRunState(state ?? null);
         setDismissed(false);
       }
     };
 
     chrome.storage.onChanged.addListener(listener);
-    return () => chrome.storage.onChanged.removeListener(listener);
+    return () => { chrome.storage.onChanged.removeListener(listener); };
   }, []);
 
   // Update elapsed timer
@@ -89,7 +89,7 @@ export function FlowRunWidget() {
 
     if (runState.status === "running") {
       const interval = setInterval(update, 100);
-      return () => clearInterval(interval);
+      return () => { clearInterval(interval); };
     }
     return undefined;
   }, [runState]);
@@ -216,7 +216,7 @@ export function FlowRunWidget() {
         <>
           <button
             type="button"
-            onClick={() => setLogsExpanded((v) => !v)}
+            onClick={() => { setLogsExpanded((v) => !v); }}
             className="text-text-muted hover:text-text-secondary flex items-center gap-1 text-[10px] transition-colors"
           >
             {logsExpanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}

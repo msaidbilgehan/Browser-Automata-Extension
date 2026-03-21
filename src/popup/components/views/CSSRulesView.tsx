@@ -188,14 +188,14 @@ export function CSSRulesView() {
 
   useEffect(() => {
     if (!editingId && !newRule) {
-      void loadAllDrafts("css-rules").then((map) => setDraftIds(new Set(Object.keys(map))));
+      void loadAllDrafts("css-rules").then((map) => { setDraftIds(new Set(Object.keys(map))); });
     }
   }, [editingId, newRule]);
 
   const ruleList = useMemo(
     () =>
       Object.values(cssRules)
-        .filter((s): s is CSSRule => s != null && typeof s.name === "string")
+        .filter((s): s is CSSRule => typeof s.name === "string")
         .sort((a, b) => a.name.localeCompare(b.name)),
     [cssRules],
   );

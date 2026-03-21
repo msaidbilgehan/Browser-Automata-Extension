@@ -44,10 +44,10 @@ function ensureStyle(): void {
 function createOverlay(rect: DOMRect): HTMLDivElement {
   const div = document.createElement("div");
   div.setAttribute(HIGHLIGHT_ATTR, "");
-  div.style.top = `${rect.top}px`;
-  div.style.left = `${rect.left}px`;
-  div.style.width = `${rect.width}px`;
-  div.style.height = `${rect.height}px`;
+  div.style.top = `${String(rect.top)}px`;
+  div.style.left = `${String(rect.left)}px`;
+  div.style.width = `${String(rect.width)}px`;
+  div.style.height = `${String(rect.height)}px`;
   return div;
 }
 

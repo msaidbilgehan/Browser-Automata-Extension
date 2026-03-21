@@ -243,14 +243,14 @@ export function ScriptsView() {
   // Refresh draft indicators when returning to list view
   useEffect(() => {
     if (!editingId && !newScript) {
-      void loadAllDrafts("scripts").then((map) => setDraftIds(new Set(Object.keys(map))));
+      void loadAllDrafts("scripts").then((map) => { setDraftIds(new Set(Object.keys(map))); });
     }
   }, [editingId, newScript]);
 
   const scriptList = useMemo(
     () =>
       Object.values(scripts)
-        .filter((s): s is Script => s != null && typeof s.name === "string")
+        .filter((s): s is Script => typeof s.name === "string")
         .sort((a, b) => a.name.localeCompare(b.name)),
     [scripts],
   );

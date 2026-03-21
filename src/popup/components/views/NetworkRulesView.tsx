@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, memo } from "react";
 import { Shield, Plus, ArrowLeft, Save, Trash2, X, Undo2, Copy } from "lucide-react";
 import type {
   NetworkRule,
@@ -74,7 +74,7 @@ function actionTypeLabel(action: NetworkRuleAction): string {
   }
 }
 
-function HeaderModTable({
+const HeaderModTable = memo(function HeaderModTable({
   label,
   headers,
   onChange,
@@ -155,7 +155,7 @@ function HeaderModTable({
       ))}
     </div>
   );
-}
+});
 
 function NetworkRuleEditor({
   initial,
@@ -207,6 +207,32 @@ function NetworkRuleEditor({
       return { ...prev, resourceTypes: next };
     });
   }, [setDraft]);
+
+  const handleRequestHeadersChange = useCallback(
+    (requestHeaders: HeaderMod[]) => {
+      setDraft((prev) => {
+        const responseHeaders =
+          prev.action.type === "modify_headers"
+            ? (prev.action.responseHeaders ?? [])
+            : [];
+        return { ...prev, action: { type: "modify_headers", requestHeaders, responseHeaders } };
+      });
+    },
+    [setDraft],
+  );
+
+  const handleResponseHeadersChange = useCallback(
+    (responseHeaders: HeaderMod[]) => {
+      setDraft((prev) => {
+        const requestHeaders =
+          prev.action.type === "modify_headers"
+            ? (prev.action.requestHeaders ?? [])
+            : [];
+        return { ...prev, action: { type: "modify_headers", requestHeaders, responseHeaders } };
+      });
+    },
+    [setDraft],
+  );
 
   const handleSave = async () => {
     const updated: NetworkRule = {
@@ -343,30 +369,12 @@ function NetworkRuleEditor({
             <HeaderModTable
               label="Request Headers"
               headers={draft.action.requestHeaders ?? []}
-              onChange={(requestHeaders) => {
-                setAction({
-                  type: "modify_headers",
-                  requestHeaders,
-                  responseHeaders:
-                    (draft.action.type === "modify_headers"
-                      ? draft.action.responseHeaders
-                      : undefined) ?? [],
-                });
-              }}
+              onChange={handleRequestHeadersChange}
             />
             <HeaderModTable
               label="Response Headers"
               headers={draft.action.responseHeaders ?? []}
-              onChange={(responseHeaders) => {
-                setAction({
-                  type: "modify_headers",
-                  requestHeaders:
-                    (draft.action.type === "modify_headers"
-                      ? draft.action.requestHeaders
-                      : undefined) ?? [],
-                  responseHeaders,
-                });
-              }}
+              onChange={handleResponseHeadersChange}
             />
           </>
         ) : null}
@@ -403,14 +411,14 @@ export function NetworkRulesView() {
 
   useEffect(() => {
     if (!editingId && !newRule) {
-      void loadAllDrafts("network-rules").then((map) => setDraftIds(new Set(Object.keys(map))));
+      void loadAllDrafts("network-rules").then((map) => { setDraftIds(new Set(Object.keys(map))); });
     }
   }, [editingId, newRule]);
 
   const ruleList = useMemo(
     () =>
       Object.values(networkRules)
-        .filter((s): s is NetworkRule => s != null && typeof s.name === "string")
+        .filter((s): s is NetworkRule => typeof s.name === "string")
         .sort((a, b) => a.name.localeCompare(b.name)),
     [networkRules],
   );

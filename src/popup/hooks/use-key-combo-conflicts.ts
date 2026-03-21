@@ -42,7 +42,7 @@ export function useKeyComboConflicts(
   const [warnings, setWarnings] = useState<ConflictWarning[]>([]);
 
   useEffect(() => {
-    if (!combo || !combo.key) {
+    if (!combo?.key) {
       setWarnings([]);
       return;
     }
@@ -50,7 +50,7 @@ export function useKeyComboConflicts(
     let cancelled = false;
 
     async function check() {
-      if (!combo || !combo.key) return;
+      if (!combo?.key) return;
       const results: ConflictWarning[] = [];
 
       // Check browser defaults
@@ -83,7 +83,7 @@ export function useKeyComboConflicts(
         if (rule.id === excludeId) continue;
         if (!rule.enabled) continue;
         if (!rule.shortcutKeyCombo) continue;
-        if (!(rule.triggers ?? []).includes("shortcut")) continue;
+        if (!rule.triggers.includes("shortcut")) continue;
         if (!scopesOverlap(scope, rule.scope)) continue;
         if (keyComboEquals(combo, rule.shortcutKeyCombo)) {
           results.push({
@@ -98,7 +98,7 @@ export function useKeyComboConflicts(
 
     void check();
     return () => { cancelled = true; };
-  }, [combo?.key, combo?.ctrlKey, combo?.shiftKey, combo?.altKey, combo?.metaKey, scope.type, scope.value, excludeId]);
+  }, [combo, scope, excludeId]);
 
   return warnings;
 }

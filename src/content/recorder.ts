@@ -76,7 +76,7 @@ function sendAction(action: RecordedAction): void {
   }
 
   try {
-    if (chrome.runtime?.id === undefined) return;
+    void chrome.runtime.id; // Throws if extension context is invalidated
   } catch {
     return;
   }

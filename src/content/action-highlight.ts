@@ -51,10 +51,10 @@ export function flashHighlight(element: Element): void {
 
   const overlay = document.createElement("div");
   overlay.setAttribute(HIGHLIGHT_ATTR, "");
-  overlay.style.top = `${rect.top}px`;
-  overlay.style.left = `${rect.left}px`;
-  overlay.style.width = `${rect.width}px`;
-  overlay.style.height = `${rect.height}px`;
+  overlay.style.top = `${String(rect.top)}px`;
+  overlay.style.left = `${String(rect.left)}px`;
+  overlay.style.width = `${String(rect.width)}px`;
+  overlay.style.height = `${String(rect.height)}px`;
   overlay.style.opacity = "1";
 
   document.documentElement.appendChild(overlay);

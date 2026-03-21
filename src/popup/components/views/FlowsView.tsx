@@ -152,6 +152,21 @@ function FlowEditor({
     draftRef.current = draft;
   }, [draft]);
 
+  const handleScopeChange = useCallback(
+    (scope: Flow["scope"]) => { patch("scope", scope); },
+    [patch],
+  );
+
+  const handleEnabledChange = useCallback(
+    (enabled: boolean) => { patch("enabled", enabled); },
+    [patch],
+  );
+
+  const handleNodesChange = useCallback(
+    (nodes: Flow["nodes"]) => { patch("nodes", nodes); },
+    [patch],
+  );
+
   const handleSave = async () => {
     const updated: Flow = {
       ...draftRef.current,
@@ -268,17 +283,13 @@ function FlowEditor({
         <UrlPatternInput
           label="Scope"
           value={draft.scope}
-          onChange={(scope) => {
-            patch("scope", scope);
-          }}
+          onChange={handleScopeChange}
         />
 
         <div className="flex items-center justify-between pt-1">
           <Toggle
             checked={draft.enabled}
-            onChange={(enabled) => {
-              patch("enabled", enabled);
-            }}
+            onChange={handleEnabledChange}
             label="Enabled"
             size="sm"
           />
@@ -287,8 +298,8 @@ function FlowEditor({
         {/* Node editor */}
         <FlowNodeEditor
           nodes={draft.nodes}
-          onChange={(nodes) => { patch("nodes", nodes); }}
-          onPickStart={handlePickStart}
+          onChange={handleNodesChange}
+          onPickStart={() => void handlePickStart()}
           initialExpandedId={initialExpandedNodeId}
           onExpandChange={handleExpandChange}
         />
@@ -316,7 +327,7 @@ export function FlowsView() {
 
   useEffect(() => {
     if (mode.type === "list" && initDone) {
-      void loadAllDrafts("flows").then((map) => setDraftIds(new Set(Object.keys(map))));
+      void loadAllDrafts("flows").then((map) => { setDraftIds(new Set(Object.keys(map))); });
     }
   }, [mode.type, initDone]);
 
@@ -355,7 +366,7 @@ export function FlowsView() {
   const flowList = useMemo(
     () =>
       Object.values(flows)
-        .filter((s): s is Flow => s != null && typeof s.name === "string")
+        .filter((s): s is Flow => typeof s.name === "string")
         .sort((a, b) => a.name.localeCompare(b.name)),
     [flows],
   );

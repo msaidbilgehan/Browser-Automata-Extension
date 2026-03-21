@@ -16,7 +16,7 @@ function isXPath(selector: string): boolean {
 /** Evaluate an XPath expression against a context node, returning all matching elements. */
 function xpathQueryAll(expr: string, root: Document | ShadowRoot): Element[] {
   const doc = root instanceof Document ? root : root.ownerDocument;
-  const contextNode = root instanceof Document ? root : root.host ?? root;
+  const contextNode = root instanceof Document ? root : root.host;
   const out: Element[] = [];
   try {
     const result = doc.evaluate(expr, contextNode, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
@@ -33,7 +33,7 @@ function xpathQueryAll(expr: string, root: Document | ShadowRoot): Element[] {
 /** Evaluate an XPath expression against a context node, returning the first matching element. */
 function xpathQueryFirst(expr: string, root: Document | ShadowRoot): Element | null {
   const doc = root instanceof Document ? root : root.ownerDocument;
-  const contextNode = root instanceof Document ? root : root.host ?? root;
+  const contextNode = root instanceof Document ? root : root.host;
   try {
     const result = doc.evaluate(expr, contextNode, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
     const node = result.singleNodeValue;
