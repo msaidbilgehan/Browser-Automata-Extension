@@ -2,7 +2,7 @@
   "video-navigator": {
     "version": ">=0.2.1",
     "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/video-navigator.json",
-    "contentHash": "fe52738690293681eabb9cd33c6342cbcf09f17453c610d5115dfd38cbe2e976",
+    "contentHash": "48035b8e641f82f43b89a05a5c5f14e26d50e22156ab06ff490f28edc93ff264",
     "updatedAt": "2026-03-22T00:00:00.000Z"
   },
   "element-hider": {
@@ -20,7 +20,7 @@
   "cookie-banner-dismisser": {
     "version": ">=0.2.1",
     "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/cookie-banner-dismisser.json",
-    "contentHash": "1f4de9c8b963ec60b9efecaeeed5230efe94e0e5e75466a012b5b2b09d8a011c",
+    "contentHash": "1404870d4286062c7c12f2ba4c676652a7b0513786fbb75133195fe3416adb83",
     "updatedAt": "2026-03-22T00:00:00.000Z"
   },
   "auto-clicker": {
@@ -32,7 +32,7 @@
   "auto-skip-youtube-ads": {
     "version": ">=0.2.1",
     "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/auto-skip-youtube-ads.json",
-    "contentHash": "4e9a0334cfbb4aed614468c0d6c5137231a048e05b6f494369f1fed623375d9c",
+    "contentHash": "3f0c171728da7fbba3c166c84ddd6d2ea4eb7e053f37cc0c7ac96e576513075f",
     "updatedAt": "2026-03-22T00:00:00.000Z"
   },
   "github-directory-download": {
