@@ -165,11 +165,11 @@ async function resolveTemplate(
 export async function installTemplate(
   templateId: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  const { template, error } = await resolveTemplate(templateId);
-  if (!template) {
-    return { ok: false, error };
+  const resolved = await resolveTemplate(templateId);
+  if (!resolved.template) {
+    return { ok: false, error: resolved.error ?? "Template not found" };
   }
-  return installFromTemplate(template);
+  return installFromTemplate(resolved.template);
 }
 
 /**
@@ -178,10 +178,11 @@ export async function installTemplate(
 export async function updateTemplate(
   templateId: string,
 ): Promise<{ ok: boolean; error?: string; newVersion?: string }> {
-  const { template, error } = await resolveTemplate(templateId);
-  if (!template) {
-    return { ok: false, error };
+  const resolved = await resolveTemplate(templateId);
+  if (!resolved.template) {
+    return { ok: false, error: resolved.error ?? "Template not found" };
   }
+  const template = resolved.template;
 
   // Remove entities from the old version
   await removeTemplateEntities(templateId);
