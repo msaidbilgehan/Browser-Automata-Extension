@@ -1,10 +1,12 @@
 import { ScrollText, Trash2, RefreshCw, Download } from "lucide-react";
-import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo, memo } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { sendToBackground } from "@/shared/messaging";
 import type { ActivityLogEntry } from "@/shared/types";
 import { Button } from "../ui/Button";
 import { Select } from "../ui/Select";
+import { EmptyState } from "../ui/EmptyState";
+import { ListHeader } from "../ui/ListHeader";
 import { exportLogs } from "../../utils/export-import";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -87,28 +89,29 @@ export function LogView() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-text-primary text-sm font-semibold">Activity Log</h2>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            onClick={() => {
-              exportLogs(filtered);
-            }}
-            disabled={filtered.length === 0}
-            title="Export logs"
-          >
-            <Download size={12} />
-          </Button>
-          <Button variant="ghost" onClick={() => void loadLog()}>
-            <RefreshCw size={12} />
-          </Button>
-          <Button variant="ghost" onClick={() => void handleClear()}>
-            <Trash2 size={12} />
-          </Button>
-        </div>
-      </div>
+      <ListHeader
+        title="Activity Log"
+        actions={
+          <>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                exportLogs(filtered);
+              }}
+              disabled={filtered.length === 0}
+              aria-label="Export logs"
+            >
+              <Download size={12} />
+            </Button>
+            <Button variant="ghost" onClick={() => void loadLog()} aria-label="Refresh log">
+              <RefreshCw size={12} />
+            </Button>
+            <Button variant="ghost" onClick={() => void handleClear()} aria-label="Clear log">
+              <Trash2 size={12} />
+            </Button>
+          </>
+        }
+      />
 
       {/* Filters */}
       <div className="flex gap-1.5">
@@ -143,12 +146,12 @@ export function LogView() {
 
       {/* Log entries */}
       {loading ? (
-        <p className="text-text-muted py-4 text-center text-xs">Loading...</p>
+        <p className="text-text-muted py-4 text-center text-xs" role="status">Loading...</p>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 py-8 text-center">
-          <ScrollText size={32} className="text-text-muted" />
-          <p className="text-text-muted text-xs">No activity yet</p>
-        </div>
+        <EmptyState
+          icon={<ScrollText size={32} />}
+          title="No activity yet"
+        />
       ) : (
         <div ref={parentRef} className="min-h-0 flex-1 overflow-y-auto">
           <div
@@ -206,7 +209,7 @@ const LOG_LEVEL_LABELS: Record<string, string> = {
   error: "ERR",
 };
 
-function LogEntry({ entry, onToggle }: { entry: ActivityLogEntry; onToggle?: () => void }) {
+const LogEntry = memo(function LogEntry({ entry, onToggle }: { entry: ActivityLogEntry; onToggle?: () => void }) {
   const [expanded, setExpanded] = useState(false);
 
   const consoleLogs = entry.details?.["consoleLogs"] as
@@ -288,7 +291,7 @@ function LogEntry({ entry, onToggle }: { entry: ActivityLogEntry; onToggle?: () 
       ) : null}
     </div>
   );
-}
+});
 
 function formatTime(iso: string): string {
   try {

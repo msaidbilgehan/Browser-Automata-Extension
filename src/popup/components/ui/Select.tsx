@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { SelectHTMLAttributes } from "react";
 
 interface SelectOption {
@@ -10,7 +11,7 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   options: SelectOption[];
 }
 
-export function Select({ label, id, options, className = "", ...props }: SelectProps) {
+export const Select = memo(function Select({ label, id, options, className = "", ...props }: SelectProps) {
   const selectId = id ?? label?.toLowerCase().replace(/\s+/g, "-");
 
   return (
@@ -33,4 +34,4 @@ export function Select({ label, id, options, className = "", ...props }: SelectP
       </select>
     </div>
   );
-}
+});

@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, memo } from "react";
 import type { TabId } from "../stores/app-store";
 
 // Eager-loaded views (small bundle size)
@@ -31,7 +31,7 @@ const ExtractionView = lazy(() =>
   import("./views/ExtractionView").then((m) => ({ default: m.ExtractionView })),
 );
 
-function ActiveView({ tab }: { tab: TabId }) {
+const ActiveView = memo(function ActiveView({ tab }: { tab: TabId }) {
   switch (tab) {
     case "scripts":
       return <ScriptsView />;
@@ -62,7 +62,7 @@ function ActiveView({ tab }: { tab: TabId }) {
     case "quick-run":
       return <QuickRunView />;
   }
-}
+});
 
 const SUSPENSE_FALLBACK = (
   <div className="flex items-center justify-center p-4">
@@ -74,10 +74,12 @@ interface ViewRouterProps {
   activeTab: TabId;
 }
 
-export function ViewRouter({ activeTab }: ViewRouterProps) {
+export const ViewRouter = memo(function ViewRouter({ activeTab }: ViewRouterProps) {
   return (
     <Suspense fallback={SUSPENSE_FALLBACK}>
-      <ActiveView tab={activeTab} />
+      <div className="animate-fade-in">
+        <ActiveView tab={activeTab} />
+      </div>
     </Suspense>
   );
-}
+});

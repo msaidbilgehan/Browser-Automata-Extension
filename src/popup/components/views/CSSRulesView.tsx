@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Paintbrush, Plus, ArrowLeft, Save, Trash2, Undo2, Copy } from "lucide-react";
+import { Paintbrush, Plus, Trash2, Copy } from "lucide-react";
 import type { CSSRule, UrlPattern } from "@/shared/types/entities";
 import { generateId, now } from "@/shared/utils";
 import { useCSSRulesStore } from "../../stores/css-rules-store";
@@ -10,6 +10,9 @@ import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
+import { EditorHeader } from "../ui/EditorHeader";
+import { EmptyState } from "../ui/EmptyState";
+import { ListHeader } from "../ui/ListHeader";
 import { CodeEditor } from "../editor/CodeEditor";
 import { UrlPatternInput } from "../editor/UrlPatternInput";
 import { cssEditorExtensions } from "@/lib/codemirror/setup";
@@ -88,33 +91,13 @@ function CSSRuleEditor({
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Header */}
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-text-muted hover:bg-bg-tertiary hover:text-text-primary rounded p-1 transition-colors"
-          aria-label="Back"
-        >
-          <ArrowLeft size={16} />
-        </button>
-        <h2 className="text-text-primary flex-1 text-sm font-semibold">
-          {isNew ? "New CSS Rule" : "Edit CSS Rule"}
-        </h2>
-        {isDirty && (
-          <span className="text-warning text-[10px] font-medium">Unsaved</span>
-        )}
-        {isDirty && (
-          <Button variant="ghost" onClick={() => void handleDiscard()} className="gap-1">
-            <Undo2 size={12} />
-            Discard
-          </Button>
-        )}
-        <Button variant="primary" onClick={() => void handleSave()} className="gap-1">
-          <Save size={12} />
-          Save
-        </Button>
-      </div>
+      <EditorHeader
+        title={isNew ? "New CSS Rule" : "Edit CSS Rule"}
+        isDirty={isDirty}
+        onBack={onBack}
+        onSave={() => void handleSave()}
+        onDiscard={() => void handleDiscard()}
+      />
 
       {/* Form */}
       <div className="flex flex-col gap-2 overflow-y-auto">
@@ -238,30 +221,30 @@ export function CSSRulesView() {
   // List view
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <h2 className="text-text-primary text-sm font-semibold">CSS Rules</h2>
-        <Button
-          variant="primary"
-          onClick={() => {
-            setNewRule(createNewCSSRule());
-          }}
-          className="gap-1"
-        >
-          <Plus size={12} />
-          New
-        </Button>
-      </div>
+      <ListHeader
+        title="CSS Rules"
+        actions={
+          <Button
+            variant="primary"
+            onClick={() => {
+              setNewRule(createNewCSSRule());
+            }}
+            className="gap-1"
+          >
+            <Plus size={12} />
+            New
+          </Button>
+        }
+      />
 
       {loading ? (
-        <p className="text-text-muted py-4 text-center text-xs">Loading...</p>
+        <p className="text-text-muted py-4 text-center text-xs" role="status">Loading...</p>
       ) : ruleList.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 py-8 text-center">
-          <Paintbrush size={32} className="text-text-muted" />
-          <p className="text-text-muted text-xs">No CSS rules yet</p>
-          <p className="text-text-muted text-[10px]">
-            Inject custom CSS per domain for styling tweaks
-          </p>
-        </div>
+        <EmptyState
+          icon={<Paintbrush size={32} />}
+          title="No CSS rules yet"
+          description="Inject custom CSS per domain for styling tweaks"
+        />
       ) : (
         <div className="flex flex-col gap-1.5">
           {ruleList.map((rule) => (

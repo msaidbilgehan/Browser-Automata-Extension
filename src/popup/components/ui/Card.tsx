@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { ReactNode } from "react";
 
 interface CardProps {
@@ -7,7 +8,7 @@ interface CardProps {
   disabled?: boolean;
 }
 
-export function Card({ children, onClick, className = "", disabled = false }: CardProps) {
+export const Card = memo(function Card({ children, onClick, className = "", disabled = false }: CardProps) {
   const interactive = onClick !== undefined;
 
   return (
@@ -30,4 +31,4 @@ export function Card({ children, onClick, className = "", disabled = false }: Ca
       {children}
     </div>
   );
-}
+});

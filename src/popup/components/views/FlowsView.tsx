@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { GitBranch, Plus, ArrowLeft, Save, Trash2, Play, Undo2, Copy } from "lucide-react";
+import { GitBranch, Plus, Play, Trash2, Copy } from "lucide-react";
 import { SectionExportImport } from "../ui/SectionExportImport";
 import { create } from "zustand";
 import type { Flow, EntityId, UrlPattern } from "@/shared/types/entities";
@@ -12,6 +12,9 @@ import { Toggle } from "../ui/Toggle";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Input } from "../ui/Input";
+import { EditorHeader } from "../ui/EditorHeader";
+import { EmptyState } from "../ui/EmptyState";
+import { ListHeader } from "../ui/ListHeader";
 import { UrlPatternInput } from "../editor/UrlPatternInput";
 import { FlowNodeEditor } from "../editor/FlowNodeEditor";
 import { FlowRunWidget } from "../widgets/FlowRunWidget";
@@ -219,39 +222,21 @@ function FlowEditor({
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Header */}
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-text-muted hover:bg-bg-tertiary hover:text-text-primary rounded p-1 transition-colors"
-          aria-label="Back"
-        >
-          <ArrowLeft size={16} />
-        </button>
-        <h2 className="text-text-primary flex-1 text-sm font-semibold">
-          {isNew ? "New Flow" : "Edit Flow"}
-        </h2>
-        {isDirty && (
-          <span className="text-warning text-[10px] font-medium">Unsaved</span>
-        )}
-        {isDirty && (
-          <Button variant="ghost" onClick={() => void handleDiscard()} className="gap-1">
-            <Undo2 size={12} />
-            Discard
-          </Button>
-        )}
-        {!isNew ? (
-          <Button variant="ghost" onClick={() => void handleRun()} className="gap-1">
-            <Play size={12} />
-            Run
-          </Button>
-        ) : null}
-        <Button variant="primary" onClick={() => void handleSave()} className="gap-1">
-          <Save size={12} />
-          Save
-        </Button>
-      </div>
+      <EditorHeader
+        title={isNew ? "New Flow" : "Edit Flow"}
+        isDirty={isDirty}
+        onBack={onBack}
+        onSave={() => void handleSave()}
+        onDiscard={() => void handleDiscard()}
+        actions={
+          !isNew ? (
+            <Button variant="ghost" onClick={() => void handleRun()} className="gap-1">
+              <Play size={12} />
+              Run
+            </Button>
+          ) : undefined
+        }
+      />
 
       {/* Form */}
       <div className="flex flex-col gap-2">
@@ -410,35 +395,35 @@ export function FlowsView() {
   // List view
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <h2 className="text-text-primary text-sm font-semibold">Flows</h2>
-        <div className="flex items-center gap-1">
-          <SectionExportImport section="flows" />
-          <Button
-            variant="primary"
-            onClick={() => {
-              setMode({ type: "new", flow: createNewFlow(), expandedNodeId: null });
-            }}
-            className="gap-1"
-          >
-            <Plus size={12} />
-            New
-          </Button>
-        </div>
-      </div>
+      <ListHeader
+        title="Flows"
+        actions={
+          <>
+            <SectionExportImport section="flows" />
+            <Button
+              variant="primary"
+              onClick={() => {
+                setMode({ type: "new", flow: createNewFlow(), expandedNodeId: null });
+              }}
+              className="gap-1"
+            >
+              <Plus size={12} />
+              New
+            </Button>
+          </>
+        }
+      />
 
       <FlowRunWidget />
 
       {loading ? (
-        <p className="text-text-muted py-4 text-center text-xs">Loading...</p>
+        <p className="text-text-muted py-4 text-center text-xs" role="status">Loading...</p>
       ) : flowList.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 py-8 text-center">
-          <GitBranch size={32} className="text-text-muted" />
-          <p className="text-text-muted text-xs">No flows yet</p>
-          <p className="text-text-muted text-[10px]">
-            Chain actions into multi-step automation sequences
-          </p>
-        </div>
+        <EmptyState
+          icon={<GitBranch size={32} />}
+          title="No flows yet"
+          description="Chain actions into multi-step automation sequences"
+        />
       ) : (
         <div className="flex flex-col gap-1.5">
           {flowList.map((f) => (

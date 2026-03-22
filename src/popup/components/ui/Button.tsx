@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
@@ -15,7 +16,7 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   ghost: "bg-transparent text-text-secondary hover:bg-bg-tertiary hover:text-text-primary",
 };
 
-export function Button({
+export const Button = memo(function Button({
   variant = "secondary",
   size = "sm",
   children,
@@ -35,4 +36,4 @@ export function Button({
       {children}
     </button>
   );
-}
+});

@@ -1,10 +1,11 @@
+import { memo } from "react";
 import type { InputHTMLAttributes } from "react";
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
 }
 
-export function Input({ label, id, className = "", ...props }: InputProps) {
+export const Input = memo(function Input({ label, id, className = "", ...props }: InputProps) {
   const inputId = id ?? label?.toLowerCase().replace(/\s+/g, "-");
 
   return (
@@ -21,4 +22,4 @@ export function Input({ label, id, className = "", ...props }: InputProps) {
       />
     </div>
   );
-}
+});

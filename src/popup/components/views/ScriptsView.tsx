@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { FileCode, Plus, ArrowLeft, Play, Save, Trash2, Undo2, Copy, Loader2 } from "lucide-react";
+import { FileCode, Plus, Play, Trash2, Copy, Loader2 } from "lucide-react";
 import { SectionExportImport } from "../ui/SectionExportImport";
 import type { Script, UrlPattern } from "@/shared/types/entities";
 import type { ScriptRunResult } from "@/shared/types/script-run";
@@ -12,6 +12,9 @@ import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
+import { EditorHeader } from "../ui/EditorHeader";
+import { EmptyState } from "../ui/EmptyState";
+import { ListHeader } from "../ui/ListHeader";
 import { CodeEditor } from "../editor/CodeEditor";
 import { UrlPatternInput } from "../editor/UrlPatternInput";
 import { ExecutionOutput } from "../ui/ExecutionOutput";
@@ -123,39 +126,21 @@ function ScriptEditor({
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Header */}
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-text-muted hover:bg-bg-tertiary hover:text-text-primary rounded p-1 transition-colors"
-          aria-label="Back"
-        >
-          <ArrowLeft size={16} />
-        </button>
-        <h2 className="text-text-primary flex-1 text-sm font-semibold">
-          {isNew ? "New Script" : "Edit Script"}
-        </h2>
-        {isDirty && (
-          <span className="text-warning text-[10px] font-medium">Unsaved</span>
-        )}
-        {isDirty && (
-          <Button variant="ghost" onClick={() => void handleDiscard()} className="gap-1">
-            <Undo2 size={12} />
-            Discard
-          </Button>
-        )}
-        {!isNew && (
-          <Button variant="ghost" onClick={() => void handleRun()} disabled={running} className="gap-1">
-            {running ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
-            {running ? "Running…" : "Run"}
-          </Button>
-        )}
-        <Button variant="primary" onClick={() => void handleSave()} className="gap-1">
-          <Save size={12} />
-          Save
-        </Button>
-      </div>
+      <EditorHeader
+        title={isNew ? "New Script" : "Edit Script"}
+        isDirty={isDirty}
+        onBack={onBack}
+        onSave={() => void handleSave()}
+        onDiscard={() => void handleDiscard()}
+        actions={
+          !isNew ? (
+            <Button variant="ghost" onClick={() => void handleRun()} disabled={running} className="gap-1">
+              {running ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
+              {running ? "Running..." : "Run"}
+            </Button>
+          ) : undefined
+        }
+      />
 
       {/* Execution output */}
       {lastResult && (
@@ -309,31 +294,33 @@ export function ScriptsView() {
   // List view
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <h2 className="text-text-primary text-sm font-semibold">Scripts</h2>
-        <div className="flex items-center gap-1">
-          <SectionExportImport section="scripts" />
-          <Button
-            variant="primary"
-            onClick={() => {
-              setNewScript(createNewScript());
-            }}
-            className="gap-1"
-          >
-            <Plus size={12} />
-            New
-          </Button>
-        </div>
-      </div>
+      <ListHeader
+        title="Scripts"
+        actions={
+          <>
+            <SectionExportImport section="scripts" />
+            <Button
+              variant="primary"
+              onClick={() => {
+                setNewScript(createNewScript());
+              }}
+              className="gap-1"
+            >
+              <Plus size={12} />
+              New
+            </Button>
+          </>
+        }
+      />
 
       {loading ? (
-        <p className="text-text-muted py-4 text-center text-xs">Loading...</p>
+        <p className="text-text-muted py-4 text-center text-xs" role="status">Loading...</p>
       ) : scriptList.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 py-8 text-center">
-          <FileCode size={32} className="text-text-muted" />
-          <p className="text-text-muted text-xs">No scripts yet</p>
-          <p className="text-text-muted text-[10px]">Create a script to automate any website</p>
-        </div>
+        <EmptyState
+          icon={<FileCode size={32} />}
+          title="No scripts yet"
+          description="Create a script to automate any website"
+        />
       ) : (
         <div className="flex flex-col gap-1.5">
           {scriptList.map((script) => (

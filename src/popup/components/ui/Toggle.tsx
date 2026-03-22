@@ -1,3 +1,5 @@
+import { memo } from "react";
+
 interface ToggleProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
@@ -6,7 +8,7 @@ interface ToggleProps {
   disabled?: boolean;
 }
 
-export function Toggle({ checked, onChange, label, size = "md", disabled = false }: ToggleProps) {
+export const Toggle = memo(function Toggle({ checked, onChange, label, size = "md", disabled = false }: ToggleProps) {
   const trackSize = size === "sm" ? "h-4 w-7" : "h-5 w-9";
   const thumbSize = size === "sm" ? "h-3 w-3" : "h-4 w-4";
   const thumbTranslate = size === "sm" ? "translate-x-3" : "translate-x-4";
@@ -31,4 +33,4 @@ export function Toggle({ checked, onChange, label, size = "md", disabled = false
       {label ? <span className="text-text-secondary text-xs">{label}</span> : null}
     </label>
   );
-}
+});

@@ -65,12 +65,13 @@ export function QuickRunBar() {
   if (actions.length === 0) return null;
 
   return (
-    <div className="border-border bg-bg-secondary flex items-center gap-1 border-t px-2 py-1">
+    <div className="border-border bg-bg-secondary flex items-center gap-1 border-t px-2 py-1" role="toolbar" aria-label="Quick run actions">
       {actions.map((action) => (
         <button
           key={action.id}
           type="button"
           title={action.name}
+          aria-label={`Run ${action.name}`}
           onClick={() => void handleExecute(action.id)}
           className={`flex items-center justify-center rounded-md px-1.5 py-1 transition-colors ${
             executing === action.id

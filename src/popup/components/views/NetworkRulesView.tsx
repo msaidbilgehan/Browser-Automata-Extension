@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, memo } from "react";
-import { Shield, Plus, ArrowLeft, Save, Trash2, X, Undo2, Copy } from "lucide-react";
+import { Shield, Plus, Trash2, X, Copy } from "lucide-react";
 import type {
   NetworkRule,
   HeaderMod,
@@ -15,6 +15,9 @@ import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
+import { EditorHeader } from "../ui/EditorHeader";
+import { EmptyState } from "../ui/EmptyState";
+import { ListHeader } from "../ui/ListHeader";
 import { UrlPatternInput } from "../editor/UrlPatternInput";
 
 const RESOURCE_TYPES = [
@@ -261,33 +264,13 @@ function NetworkRuleEditor({
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Header */}
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-text-muted hover:bg-bg-tertiary hover:text-text-primary rounded p-1 transition-colors"
-          aria-label="Back"
-        >
-          <ArrowLeft size={16} />
-        </button>
-        <h2 className="text-text-primary flex-1 text-sm font-semibold">
-          {isNew ? "New Network Rule" : "Edit Network Rule"}
-        </h2>
-        {isDirty && (
-          <span className="text-warning text-[10px] font-medium">Unsaved</span>
-        )}
-        {isDirty && (
-          <Button variant="ghost" onClick={() => void handleDiscard()} className="gap-1">
-            <Undo2 size={12} />
-            Discard
-          </Button>
-        )}
-        <Button variant="primary" onClick={() => void handleSave()} className="gap-1">
-          <Save size={12} />
-          Save
-        </Button>
-      </div>
+      <EditorHeader
+        title={isNew ? "New Network Rule" : "Edit Network Rule"}
+        isDirty={isDirty}
+        onBack={onBack}
+        onSave={() => void handleSave()}
+        onDiscard={() => void handleDiscard()}
+      />
 
       {/* Form */}
       <div className="flex flex-col gap-2 overflow-y-auto">
@@ -460,30 +443,30 @@ export function NetworkRulesView() {
   // List view
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <h2 className="text-text-primary text-sm font-semibold">Network Rules</h2>
-        <Button
-          variant="primary"
-          onClick={() => {
-            setNewRule(createNewNetworkRule());
-          }}
-          className="gap-1"
-        >
-          <Plus size={12} />
-          New
-        </Button>
-      </div>
+      <ListHeader
+        title="Network Rules"
+        actions={
+          <Button
+            variant="primary"
+            onClick={() => {
+              setNewRule(createNewNetworkRule());
+            }}
+            className="gap-1"
+          >
+            <Plus size={12} />
+            New
+          </Button>
+        }
+      />
 
       {loading ? (
-        <p className="text-text-muted py-4 text-center text-xs">Loading...</p>
+        <p className="text-text-muted py-4 text-center text-xs" role="status">Loading...</p>
       ) : ruleList.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 py-8 text-center">
-          <Shield size={32} className="text-text-muted" />
-          <p className="text-text-muted text-xs">No network rules yet</p>
-          <p className="text-text-muted text-[10px]">
-            Block, redirect, or modify network requests per domain
-          </p>
-        </div>
+        <EmptyState
+          icon={<Shield size={32} />}
+          title="No network rules yet"
+          description="Block, redirect, or modify network requests per domain"
+        />
       ) : (
         <div className="flex flex-col gap-1.5">
           {ruleList.map((rule) => (

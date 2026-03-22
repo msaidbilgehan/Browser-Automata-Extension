@@ -1,9 +1,10 @@
+import { memo, useCallback } from "react";
 import { Settings } from "lucide-react";
 import { useAppStore } from "../stores/app-store";
 import { Toggle } from "./ui/Toggle";
 import { AppIcon } from "./ui/AppIcon";
 
-export function Header() {
+export const Header = memo(function Header() {
   const globalEnabled = useAppStore((s) => s.settings.globalEnabled);
   const viewMode = useAppStore((s) => s.settings.ui.viewMode);
   const toggleGlobalEnabled = useAppStore((s) => s.toggleGlobalEnabled);
@@ -11,10 +12,10 @@ export function Header() {
   const setActiveTab = useAppStore((s) => s.setActiveTab);
   const settings = useAppStore((s) => s.settings);
 
-  const toggleViewMode = () => {
+  const toggleViewMode = useCallback(() => {
     const next = viewMode === "basic" ? "advanced" : "basic";
     void updateSettings({ ui: { ...settings.ui, viewMode: next } });
-  };
+  }, [viewMode, settings.ui, updateSettings]);
 
   return (
     <header className="border-border flex h-10 shrink-0 items-center justify-between border-b px-3">
@@ -56,4 +57,4 @@ export function Header() {
       </div>
     </header>
   );
-}
+});

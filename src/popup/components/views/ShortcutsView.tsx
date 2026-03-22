@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Keyboard, Plus, ArrowLeft, ArrowRight, Save, Trash2, Undo2, Copy } from "lucide-react";
+import { Keyboard, Plus, ArrowRight, Trash2, Copy } from "lucide-react";
 import { SectionExportImport } from "../ui/SectionExportImport";
 import type { Shortcut, ShortcutAction, KeyCombo, EntityId, Flow, ScopeMode, UrlPattern } from "@/shared/types/entities";
 import { generateId, now } from "@/shared/utils";
@@ -13,6 +13,9 @@ import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
+import { EditorHeader } from "../ui/EditorHeader";
+import { EmptyState } from "../ui/EmptyState";
+import { ListHeader } from "../ui/ListHeader";
 import { CodeEditor } from "../editor/CodeEditor";
 import { KeyCaptureInput, formatKeyCombo } from "../editor/KeyCaptureInput";
 import { UrlPatternInput } from "../editor/UrlPatternInput";
@@ -276,33 +279,13 @@ function ShortcutEditor({
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Header */}
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-text-muted hover:bg-bg-tertiary hover:text-text-primary rounded p-1 transition-colors"
-          aria-label="Back"
-        >
-          <ArrowLeft size={16} />
-        </button>
-        <h2 className="text-text-primary flex-1 text-sm font-semibold">
-          {isNew ? "New Shortcut" : "Edit Shortcut"}
-        </h2>
-        {isDirty && (
-          <span className="text-warning text-[10px] font-medium">Unsaved</span>
-        )}
-        {isDirty && (
-          <Button variant="ghost" onClick={() => void handleDiscard()} className="gap-1">
-            <Undo2 size={12} />
-            Discard
-          </Button>
-        )}
-        <Button variant="primary" onClick={() => void handleSave()} className="gap-1">
-          <Save size={12} />
-          Save
-        </Button>
-      </div>
+      <EditorHeader
+        title={isNew ? "New Shortcut" : "Edit Shortcut"}
+        isDirty={isDirty}
+        onBack={onBack}
+        onSave={() => void handleSave()}
+        onDiscard={() => void handleDiscard()}
+      />
 
       {/* Form */}
       <div className="flex flex-col gap-2 overflow-y-auto">
@@ -570,31 +553,33 @@ export function ShortcutsView() {
   // List view
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <h2 className="text-text-primary text-sm font-semibold">Shortcuts</h2>
-        <div className="flex items-center gap-1">
-          <SectionExportImport section="shortcuts" />
-          <Button
-            variant="primary"
-            onClick={() => {
-              setNewShortcut(createNewShortcut());
-            }}
-            className="gap-1"
-          >
-            <Plus size={12} />
-            New
-          </Button>
-        </div>
-      </div>
+      <ListHeader
+        title="Shortcuts"
+        actions={
+          <>
+            <SectionExportImport section="shortcuts" />
+            <Button
+              variant="primary"
+              onClick={() => {
+                setNewShortcut(createNewShortcut());
+              }}
+              className="gap-1"
+            >
+              <Plus size={12} />
+              New
+            </Button>
+          </>
+        }
+      />
 
       {loading ? (
-        <p className="text-text-muted py-4 text-center text-xs">Loading...</p>
+        <p className="text-text-muted py-4 text-center text-xs" role="status">Loading...</p>
       ) : shortcutList.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 py-8 text-center">
-          <Keyboard size={32} className="text-text-muted" />
-          <p className="text-text-muted text-xs">No shortcuts yet</p>
-          <p className="text-text-muted text-[10px]">Bind keyboard combos to actions on any page</p>
-        </div>
+        <EmptyState
+          icon={<Keyboard size={32} />}
+          title="No shortcuts yet"
+          description="Bind keyboard combos to actions on any page"
+        />
       ) : (
         <div className="flex flex-col gap-2">
           {Object.entries(grouped).map(([group, items]) => (

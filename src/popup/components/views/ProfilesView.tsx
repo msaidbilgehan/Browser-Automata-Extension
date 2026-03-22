@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Users, Plus, ArrowLeft, Save, Trash2, Check, Undo2 } from "lucide-react";
+import { Users, Plus, Trash2, Check } from "lucide-react";
 import { create } from "zustand";
 import type { Profile, EntityId } from "@/shared/types/entities";
 import { localStore, onStorageChange } from "@/shared/storage";
@@ -10,6 +10,9 @@ import { removeDraft, loadAllDrafts } from "../../stores/editor-session";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Input } from "../ui/Input";
+import { EditorHeader } from "../ui/EditorHeader";
+import { EmptyState } from "../ui/EmptyState";
+import { ListHeader } from "../ui/ListHeader";
 
 // ─── Inline Profiles Store ──────────────────────────────────────────────────
 
@@ -140,32 +143,13 @@ function ProfileEditor({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-text-muted hover:bg-bg-tertiary hover:text-text-primary rounded p-1 transition-colors"
-          aria-label="Back"
-        >
-          <ArrowLeft size={16} />
-        </button>
-        <h2 className="text-text-primary flex-1 text-sm font-semibold">
-          {isNew ? "New Profile" : "Edit Profile"}
-        </h2>
-        {isDirty && (
-          <span className="text-warning text-[10px] font-medium">Unsaved</span>
-        )}
-        {isDirty && (
-          <Button variant="ghost" onClick={() => void handleDiscard()} className="gap-1">
-            <Undo2 size={12} />
-            Discard
-          </Button>
-        )}
-        <Button variant="primary" onClick={() => void handleSave()} className="gap-1">
-          <Save size={12} />
-          Save
-        </Button>
-      </div>
+      <EditorHeader
+        title={isNew ? "New Profile" : "Edit Profile"}
+        isDirty={isDirty}
+        onBack={onBack}
+        onSave={() => void handleSave()}
+        onDiscard={() => void handleDiscard()}
+      />
 
       <div className="flex flex-col gap-2">
         <Input
@@ -264,19 +248,21 @@ export function ProfilesView() {
   // List view
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <h2 className="text-text-primary text-sm font-semibold">Profiles</h2>
-        <Button
-          variant="primary"
-          onClick={() => {
-            setNewProfile(createNewProfile());
-          }}
-          className="gap-1"
-        >
-          <Plus size={12} />
-          New
-        </Button>
-      </div>
+      <ListHeader
+        title="Profiles"
+        actions={
+          <Button
+            variant="primary"
+            onClick={() => {
+              setNewProfile(createNewProfile());
+            }}
+            className="gap-1"
+          >
+            <Plus size={12} />
+            New
+          </Button>
+        }
+      />
 
       {loading ? (
         <p className="text-text-muted py-4 text-center text-xs">Loading...</p>
@@ -318,13 +304,11 @@ export function ProfilesView() {
           </Card>
 
           {profileList.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-6 text-center">
-              <Users size={28} className="text-text-muted" />
-              <p className="text-text-muted text-xs">No custom profiles yet</p>
-              <p className="text-text-muted text-[10px]">
-                Create profiles to organize automations by context
-              </p>
-            </div>
+            <EmptyState
+              icon={<Users size={28} />}
+              title="No custom profiles yet"
+              description="Create profiles to organize automations by context"
+            />
           ) : (
             profileList.map((profile) => {
               const isActive = activeProfileId === profile.id;

@@ -2,14 +2,11 @@ import { useState, useEffect, useMemo, useCallback, memo } from "react";
 import {
   TableProperties,
   Plus,
-  ArrowLeft,
-  Save,
-  Trash2,
   X,
   Play,
-  Undo2,
   Loader2,
   Copy,
+  Trash2,
 } from "lucide-react";
 import type { ExtractionRule, ExtractionField, ExtractionOutputAction, ExtractionTrigger, KeyCombo, UrlPattern, EntityId } from "@/shared/types/entities";
 import { generateId, now } from "@/shared/utils";
@@ -20,6 +17,9 @@ import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
+import { EditorHeader } from "../ui/EditorHeader";
+import { EmptyState } from "../ui/EmptyState";
+import { ListHeader } from "../ui/ListHeader";
 import { UrlPatternInput } from "../editor/UrlPatternInput";
 import { SelectorSourceList } from "../editor/SelectorSourceList";
 import { ExtractionResultPanel, ExtractionErrorPanel } from "../ExtractionResultPanel";
@@ -475,33 +475,13 @@ function ExtractionRuleEditor({
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Header */}
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-text-muted hover:bg-bg-tertiary hover:text-text-primary rounded p-1 transition-colors"
-          aria-label="Back"
-        >
-          <ArrowLeft size={16} />
-        </button>
-        <h2 className="text-text-primary flex-1 text-sm font-semibold">
-          {isNew ? "New Extraction Rule" : "Edit Extraction Rule"}
-        </h2>
-        {isDirty && (
-          <span className="text-warning text-[10px] font-medium">Unsaved</span>
-        )}
-        {isDirty && (
-          <Button variant="ghost" onClick={() => void handleDiscard()} className="gap-1">
-            <Undo2 size={12} />
-            Discard
-          </Button>
-        )}
-        <Button variant="primary" onClick={() => void handleSave()} className="gap-1">
-          <Save size={12} />
-          Save
-        </Button>
-      </div>
+      <EditorHeader
+        title={isNew ? "New Extraction Rule" : "Edit Extraction Rule"}
+        isDirty={isDirty}
+        onBack={onBack}
+        onSave={() => void handleSave()}
+        onDiscard={() => void handleDiscard()}
+      />
 
       {/* Form */}
       <div className="flex flex-col gap-2 overflow-y-auto">
@@ -701,28 +681,30 @@ export function ExtractionView() {
   // List view
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <h2 className="text-text-primary text-sm font-semibold">Extraction Rules</h2>
-        <Button
-          variant="primary"
-          onClick={() => {
-            setNewRule(createNewExtractionRule());
-          }}
-          className="gap-1"
-        >
-          <Plus size={12} />
-          New
-        </Button>
-      </div>
+      <ListHeader
+        title="Extraction Rules"
+        actions={
+          <Button
+            variant="primary"
+            onClick={() => {
+              setNewRule(createNewExtractionRule());
+            }}
+            className="gap-1"
+          >
+            <Plus size={12} />
+            New
+          </Button>
+        }
+      />
 
       {loading ? (
-        <p className="text-text-muted py-4 text-center text-xs">Loading...</p>
+        <p className="text-text-muted py-4 text-center text-xs" role="status">Loading...</p>
       ) : ruleList.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 py-8 text-center">
-          <TableProperties size={32} className="text-text-muted" />
-          <p className="text-text-muted text-xs">No extraction rules yet</p>
-          <p className="text-text-muted text-[10px]">Extract structured data from web pages</p>
-        </div>
+        <EmptyState
+          icon={<TableProperties size={32} />}
+          title="No extraction rules yet"
+          description="Extract structured data from web pages"
+        />
       ) : (
         <div className="flex flex-col gap-1.5">
           {ruleList.map((rule) => (
