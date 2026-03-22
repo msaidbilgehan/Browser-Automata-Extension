@@ -1,0 +1,62 @@
+{
+  "_format": "browser-automata-export",
+  "_schemaVersion": 1,
+  "_exportedAt": "2026-03-22T00:00:00.000Z",
+  "_includesSecrets": false,
+  "templates": [
+    {
+      "id": "tpl-video-navigator",
+      "name": "Video Navigator",
+      "description": "Binds N and P keys to navigate to next/previous video on YouTube and Vimeo.",
+      "category": "navigation",
+      "tags": ["video", "youtube", "vimeo", "shortcuts", "navigation"],
+      "meta": {
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z",
+        "templateVersion": "1.0.0"
+      },
+      "shortcuts": [
+        {
+          "name": "Next Video",
+          "keyCombo": {
+            "key": "n",
+            "ctrlKey": false,
+            "shiftKey": false,
+            "altKey": false,
+            "metaKey": false
+          },
+          "action": {
+            "type": "inline_script",
+            "code": "(function() {\n  const ytNext = document.querySelector(\".ytp-next-button, a.ytp-next-button\");\n  const vimeoNext = document.querySelector(\"[data-action=\\\"next\\\"]\");\n  const target = ytNext || vimeoNext;\n  if (target instanceof HTMLElement) target.click();\n})();"
+          },
+          "scope": {
+            "type": "glob",
+            "value": "*://*.youtube.com/*,*://*.vimeo.com/*"
+          },
+          "enabled": true,
+          "profileId": null
+        },
+        {
+          "name": "Previous Video",
+          "keyCombo": {
+            "key": "p",
+            "ctrlKey": false,
+            "shiftKey": false,
+            "altKey": false,
+            "metaKey": false
+          },
+          "action": {
+            "type": "inline_script",
+            "code": "(function() {\n  const ytPrev = document.querySelector(\".ytp-prev-button\");\n  const vimeoPrev = document.querySelector(\"[data-action=\\\"previous\\\"]\");\n  const target = ytPrev || vimeoPrev;\n  if (target instanceof HTMLElement) target.click();\n})();"
+          },
+          "scope": {
+            "type": "glob",
+            "value": "*://*.youtube.com/*,*://*.vimeo.com/*"
+          },
+          "enabled": true,
+          "profileId": null
+        }
+      ]
+    }
+  ]
+}

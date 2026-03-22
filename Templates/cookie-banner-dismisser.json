@@ -1,0 +1,34 @@
+{
+  "_format": "browser-automata-export",
+  "_schemaVersion": 1,
+  "_exportedAt": "2026-03-22T00:00:00.000Z",
+  "_includesSecrets": false,
+  "templates": [
+    {
+      "id": "tpl-cookie-banner-dismisser",
+      "name": "Cookie Banner Dismisser",
+      "description": "Automatically clicks common cookie consent/accept buttons on page load.",
+      "category": "privacy",
+      "tags": ["cookies", "consent", "privacy", "auto-dismiss", "page_load"],
+      "meta": {
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z",
+        "templateVersion": "1.0.0"
+      },
+      "scripts": [
+        {
+          "name": "Cookie Banner Dismisser",
+          "description": "Clicks common cookie consent buttons",
+          "code": "(function() {\n  const selectors = [\n    \"#accept-cookies\",\n    \".cookie-accept\",\n    \"[data-consent=\\\"accept\\\"]\",\n    \"#cookie-accept-btn\",\n    \".accept-cookies-button\",\n    \"#onetrust-accept-btn-handler\",\n    \".js-accept-cookies\",\n    \"[aria-label=\\\"Accept cookies\\\"]\",\n    \".cookie-consent-accept\",\n    \"#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll\"\n  ];\n  for (const sel of selectors) {\n    const el = document.querySelector(sel);\n    if (el instanceof HTMLElement) {\n      el.click();\n      break;\n    }\n  }\n})();",
+          "trigger": "page_load",
+          "scope": { "type": "global", "value": "*" },
+          "executionWorld": "MAIN",
+          "runAt": "document_idle",
+          "enabled": true,
+          "priority": 0,
+          "profileId": null
+        }
+      ]
+    }
+  ]
+}

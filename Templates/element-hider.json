@@ -1,0 +1,30 @@
+{
+  "_format": "browser-automata-export",
+  "_schemaVersion": 1,
+  "_exportedAt": "2026-03-22T00:00:00.000Z",
+  "_includesSecrets": false,
+  "templates": [
+    {
+      "id": "tpl-element-hider",
+      "name": "Element Hider",
+      "description": "Hides page elements matching a CSS selector. Configure the selector to target ads, banners, or other unwanted elements.",
+      "category": "ui_modification",
+      "tags": ["hide", "elements", "css", "ad-blocker", "ui"],
+      "meta": {
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z",
+        "templateVersion": "1.0.0"
+      },
+      "cssRules": [
+        {
+          "name": "Element Hider Rule",
+          "css": "/* Replace .element-to-hide with your target selector */\n.element-to-hide {\n  display: none !important;\n}",
+          "scope": { "type": "global", "value": "*" },
+          "enabled": true,
+          "injectAt": "document_start",
+          "profileId": null
+        }
+      ]
+    }
+  ]
+}
