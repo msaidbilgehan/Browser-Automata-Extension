@@ -4,7 +4,7 @@
 
 Wire keyboard shortcuts to page elements, execute JavaScript on any domain, extract structured data, chain multi-step flows, inject custom CSS, intercept network requests — all from a compact popup UI. Pre-built templates lower the entry barrier for non-technical users, but the engine never constrains power users.
 
-> **Status:** v0.2.5 · Chrome Extension (Manifest V3) · Private License
+> **Status:** v0.2.6 · Chrome Extension (Manifest V3) · Private License
 
 ---
 

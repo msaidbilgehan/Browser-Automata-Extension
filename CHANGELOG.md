@@ -4,6 +4,43 @@ All notable changes to Browser Automata are documented in this file.
 
 ---
 
+## v0.2.6 — 2026-03-22
+
+> Backend and UI performance optimizations, template management improvements, and build fixes.
+
+### Bug Fixes
+
+- **Stale Declaration Build Errors** — Fixes stale `.d.ts` build errors by redirecting declarations to a temp directory, eliminating false type-check failures from leftover artifacts.
+- **Silent Error Handling** — Replaces 12 silent `catch` blocks across backend services with `console.debug` logging for improved debuggability.
+- **Library Resolver Regex Bug** — Fixes global regex `lastIndex` state bug in `library-resolver.ts` that caused intermittent resolution failures.
+- **Template Metadata** — Fixes template field issues and updates content hashes across bundled templates.
+
+### Improvements
+
+- **Cookie Banner Dismisser** — Updates the cookie banner dismisser template to support newer consent platforms (Usercentrics, Klaro, CookieYes, Termly, Axeptio).
+- **Template Organization** — Separates bundled templates into individual JSON files and removes inline bundled templates for cleaner maintenance.
+- **Content Script Reliability** — Increases content script retry count from 2 to 5 for improved cold-start reliability on slow pages.
+
+### Performance
+
+- **Flow Executor Lookups** — Replaces O(n) `find`/`findIndex` calls with O(1) Map lookups for node and step resolution in the flow executor.
+- **Parallel Storage Reads** — Parallelizes storage reads across `script-manager`, `shortcut-manager`, `extraction-engine`, and `dependency-resolver`.
+- **Shadow DOM Traversal** — Uses `TreeWalker` for deep-query shadow DOM traversal with early exit, replacing full `NodeList` materialization.
+- **DOM Batch Operations** — Uses `DocumentFragment` batch DOM insertion in `quick-run-bar` and single-pass children iteration in `element-picker`.
+- **MutationObserver Debounce** — Adds 100ms debounce to `element-watcher` `MutationObserver` to reduce high-frequency callback overhead.
+
+### Architecture
+
+- **SettingsView Decomposition** — Decomposes the monolithic `SettingsView` (562 LOC) into 9 focused sub-components wrapped with `React.memo` for granular re-render control.
+- **Shared UI Components** — Adds reusable `EditorHeader`, `EmptyState`, and `ListHeader` components, eliminating ~200 lines of duplication across views.
+- **Memoized UI Primitives** — Wraps base UI primitives (`Button`, `Card`, `Input`, `Select`, `Toggle`) and layout components (`Header`, `ViewRouter`, `LogEntry`) with `React.memo`.
+
+### Accessibility
+
+- **ARIA Attributes** — Adds `role` attributes and `aria-label` annotations to buttons and toolbars across the popup UI.
+
+---
+
 ## v0.2.5 — 2026-03-22
 
 > Quick Tip shortcut overlay, scope mode inheritance for Quick Run and Shortcuts, and Quick Run Bar UX refinements.
