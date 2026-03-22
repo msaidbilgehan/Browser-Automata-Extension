@@ -111,6 +111,23 @@ describe("matchUrl — glob matching", () => {
             expect(matchUrl(glob("*.youtube.com/*"), "https://www.youtube.com/")).toBe(true);
         });
     });
+    describe("protocol-prefixed glob patterns", () => {
+        it("strips *:// protocol prefix and matches correctly", () => {
+            expect(matchUrl(glob("*://*.github.com/*/tree/*"), "https://github.com/user/tree/main")).toBe(true);
+        });
+        it("strips *:// and matches subdomain", () => {
+            expect(matchUrl(glob("*://*.github.com/*"), "https://docs.github.com/page")).toBe(true);
+        });
+        it("strips https:// protocol prefix", () => {
+            expect(matchUrl(glob("https://*.github.com/*"), "https://github.com/user")).toBe(true);
+        });
+        it("does NOT match when path doesn't satisfy the glob", () => {
+            expect(matchUrl(glob("*://*.github.com/*/tree/*"), "https://github.com/")).toBe(false);
+        });
+        it("does NOT match a different domain with protocol prefix", () => {
+            expect(matchUrl(glob("*://*.github.com/*"), "https://gitlab.com/page")).toBe(false);
+        });
+    });
     describe("question mark wildcard", () => {
         it("matches exactly one character", () => {
             expect(matchUrl(glob("example.com/ab?"), "https://example.com/abc")).toBe(true);

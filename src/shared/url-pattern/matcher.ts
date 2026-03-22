@@ -41,7 +41,12 @@ function matchExact(patternValue: string, url: string): boolean {
  *   "*.example.com/*" — matches any subdomain + any path
  */
 function matchGlob(patternValue: string, url: string): boolean {
-  const regex = globToRegex(patternValue);
+  // Strip protocol prefix (e.g. "*://", "https://") before converting to regex,
+  // because we match against hostname+pathname which has no protocol.
+  const protoIdx = patternValue.indexOf("://");
+  const stripped = protoIdx !== -1 ? patternValue.slice(protoIdx + 3) : patternValue;
+
+  const regex = globToRegex(stripped);
   // Match against hostname + pathname
   const parsed = safeParseUrl(url);
   if (!parsed) return false;
