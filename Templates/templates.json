@@ -74,7 +74,7 @@
   "currency-converter": {
     "version": ">=0.2.1",
     "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/currency-converter.json",
-    "contentHash": "41cdc7f3f2ee80ee76e2df299610107c4d849d54721dec0cb09147c426f4746d",
+    "contentHash": "e1ff7b22f3059b3207f0124d01c1d21293386fb15edb13654a2f496bf9a16228",
     "updatedAt": "2026-03-22T00:00:00.000Z"
   }
 }
