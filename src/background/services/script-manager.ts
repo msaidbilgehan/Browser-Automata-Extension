@@ -167,9 +167,10 @@ interface ExecuteUserCodeResult {
  * All values must be serialized to primitives (strings/numbers) here —
  * DOM nodes, functions, and circular refs would break the cloning.
  *
- * Executes via new Function() — MV3-legal inside executeScript's func.
+ * Tries new Function() first. When the page's CSP blocks `unsafe-eval`,
+ * falls back to blob: URL `<script>` injection (widely permitted by CSP).
  */
-function executeUserCode(code: string): ExecuteUserCodeResult {
+async function executeUserCode(code: string): Promise<ExecuteUserCodeResult> {
   const consoleLogs: ConsoleCaptureEntry[] = [];
 
   /** Safely stringify any value — must be self-contained (no external imports). */
@@ -193,6 +194,13 @@ function executeUserCode(code: string): ExecuteUserCodeResult {
   const origWarn = console.warn;
   const origError = console.error;
 
+  function restoreConsole(): void {
+    console.log = origLog;
+    console.info = origInfo;
+    console.warn = origWarn;
+    console.error = origError;
+  }
+
   const capture = (level: ConsoleCaptureEntry["level"]) =>
     (...args: unknown[]) => {
       // Serialize args immediately so only plain strings cross the boundary
@@ -208,26 +216,89 @@ function executeUserCode(code: string): ExecuteUserCodeResult {
   console.error = capture("error");
 
   const start = performance.now();
+
+  // 1) Try new Function() — fast, synchronous, works when CSP allows unsafe-eval
   try {
     // eslint-disable-next-line @typescript-eslint/no-implied-eval
     const fn: () => unknown = new Function(code) as () => unknown;
     const rawResult: unknown = fn();
     const durationMs = Math.round((performance.now() - start) * 100) / 100;
+    restoreConsole();
     return { result: serialize(rawResult), consoleLogs, durationMs };
   } catch (err) {
-    const durationMs = Math.round((performance.now() - start) * 100) / 100;
-    const result: ExecuteUserCodeResult = {
-      error: err instanceof Error ? err.message : String(err),
-      consoleLogs,
-      durationMs,
-    };
-    if (err instanceof Error && err.stack) result.stack = err.stack;
-    return result;
-  } finally {
-    // Restore original console methods
-    console.log = origLog;
-    console.info = origInfo;
-    console.warn = origWarn;
-    console.error = origError;
+    const msg = err instanceof Error ? err.message : String(err);
+
+    // If not a CSP violation, report as a normal script error
+    if (!msg.includes("Content Security Policy")) {
+      const durationMs = Math.round((performance.now() - start) * 100) / 100;
+      restoreConsole();
+      const result: ExecuteUserCodeResult = { error: msg, consoleLogs, durationMs };
+      if (err instanceof Error && err.stack) result.stack = err.stack;
+      return result;
+    }
   }
+
+  // 2) CSP blocks eval — fall back to blob: URL <script> injection.
+  //    Console interception is still active so logs from the blob script
+  //    are captured into consoleLogs[].
+  const resultKey = "__ba_r_" + Math.random().toString(36).slice(2);
+
+  return new Promise<ExecuteUserCodeResult>((resolve) => {
+    // Wrap code in an IIFE so `return` statements work (blob scripts
+    // run as global code, not inside a function body).
+    const wrappedCode =
+      "try{var __ba_v=(function(){" +
+      code +
+      "\n})();window[" + JSON.stringify(resultKey) + "]={ok:!0,v:__ba_v};" +
+      "}catch(__ba_e){" +
+      "window[" + JSON.stringify(resultKey) + "]={ok:!1,e:__ba_e.message||String(__ba_e),s:__ba_e.stack};" +
+      "}";
+
+    const blob = new Blob([wrappedCode], { type: "text/javascript" });
+    const blobUrl = URL.createObjectURL(blob);
+    const el = document.createElement("script");
+    el.src = blobUrl;
+
+    const finish = (result: ExecuteUserCodeResult): void => {
+      URL.revokeObjectURL(blobUrl);
+      el.remove();
+      restoreConsole();
+      delete (window as unknown as Record<string, unknown>)[resultKey];
+      resolve(result);
+    };
+
+    el.onload = () => {
+      const durationMs = Math.round((performance.now() - start) * 100) / 100;
+      const w = window as unknown as Record<string, unknown>;
+      const res = w[resultKey] as
+        | { ok: boolean; v?: unknown; e?: string; s?: string }
+        | undefined;
+
+      if (!res || res.ok) {
+        const returnVal = res?.v !== undefined ? serialize(res.v) : undefined;
+        const r: ExecuteUserCodeResult = { consoleLogs, durationMs };
+        if (returnVal !== undefined) r.result = returnVal;
+        finish(r);
+      } else {
+        const r: ExecuteUserCodeResult = {
+          error: res.e ?? "Unknown error",
+          consoleLogs,
+          durationMs,
+        };
+        if (res.s) r.stack = res.s;
+        finish(r);
+      }
+    };
+
+    el.onerror = () => {
+      const durationMs = Math.round((performance.now() - start) * 100) / 100;
+      finish({
+        error: "Script blocked by Content Security Policy (both eval and blob: URL denied)",
+        consoleLogs,
+        durationMs,
+      });
+    };
+
+    (document.head ?? document.documentElement).appendChild(el);
+  });
 }

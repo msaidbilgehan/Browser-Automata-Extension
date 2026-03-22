@@ -2,6 +2,7 @@ import { localStore } from "@/shared/storage";
 import { appendLogEntry } from "@/background/handlers/log-handler";
 import { executeScript } from "./script-manager";
 import { DEEP_QUERY_SNIPPET } from "@/shared/deep-query-snippet";
+import { cspSafeExecExpression, cspSafeExecStatements } from "@/shared/csp-safe-eval";
 import { normalizeUrl, now } from "@/shared/utils";
 import type { EntityId, Flow, FlowNode, FlowNodeConfig } from "@/shared/types/entities";
 import type { FlowRunState, FlowRunLogEntry } from "@/shared/types/flow-run";
@@ -579,11 +580,7 @@ async function injectAction(tabId: number, code: string): Promise<void> {
   await chrome.scripting.executeScript({
     target: { tabId },
     world: "MAIN",
-    func: (c: string) => {
-      // eslint-disable-next-line @typescript-eslint/no-implied-eval
-      const fn: () => unknown = new Function(`return ${c}`) as () => unknown;
-      return fn();
-    },
+    func: cspSafeExecExpression,
     args: [wrappedCode],
   });
 }
@@ -600,11 +597,7 @@ async function executeCondition(
   const results = await chrome.scripting.executeScript({
     target: { tabId: ctx.tabId },
     world: "MAIN",
-    func: (c: string) => {
-      // eslint-disable-next-line @typescript-eslint/no-implied-eval
-      const fn: () => unknown = new Function(c) as () => unknown;
-      return fn();
-    },
+    func: cspSafeExecStatements,
     args: [checkCode],
   });
 
@@ -665,16 +658,12 @@ async function executeLoop(
   } else if (config.untilSelector) {
     const maxIterations = 1000;
     for (let i = 0; i < maxIterations; i++) {
+      const loopCheckCode = `${DEEP_QUERY_SNIPPET}; return !!__qsDeep(${JSON.stringify(config.untilSelector)})`;
       const results = await chrome.scripting.executeScript({
         target: { tabId: ctx.tabId },
         world: "MAIN",
-        func: (sel: string, snippet: string) => {
-          // eslint-disable-next-line @typescript-eslint/no-implied-eval, @typescript-eslint/no-unsafe-call
-          new Function(snippet)();
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
-          return !!(globalThis as any).__qsDeep(sel);
-        },
-        args: [config.untilSelector, DEEP_QUERY_SNIPPET],
+        func: cspSafeExecStatements,
+        args: [loopCheckCode],
       });
       if (results[0]?.result) break;
       await walkNodes(flow, bodyNodes, ctx);
