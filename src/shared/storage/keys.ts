@@ -14,7 +14,16 @@ import type {
   NotificationRule,
   SiteAdapter,
   HealthMetrics,
+  ISOTimestamp,
 } from "../types/entities";
+
+/** Tracks an installed template's version for update detection */
+export interface InstalledTemplateRecord {
+  templateId: string;
+  templateVersion: string;
+  installedAt: ISOTimestamp;
+  updatedAt: ISOTimestamp;
+}
 import type { Settings } from "../types/settings";
 import type { ActivityLogEntry } from "../types/activity-log";
 
@@ -38,6 +47,7 @@ export interface StorageSchema {
   notificationRules: Record<string, NotificationRule>;
   siteAdapters: Record<string, SiteAdapter>;
   healthMetrics: HealthMetrics;
+  installedTemplates: Record<string, InstalledTemplateRecord>;
   log: ActivityLogEntry[];
   schemaVersion: number;
 }

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Browser Automata",
   "description": "Power-tool browser automation: keyboard shortcuts, script execution, and structured data extraction",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "icons": {
     "16": "src/assets/icons/icon-16.png",
     "32": "src/assets/icons/icon-32.png",

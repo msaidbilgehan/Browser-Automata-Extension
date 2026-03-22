@@ -6,6 +6,10 @@ import type {
   ExtractionRunResponse,
   HealthResponse,
 } from "../types/messages";
+import type { TemplateCatalogResponse } from "../types/template-registry";
+import type { Template } from "../types/entities";
+import type { ScriptRunResult } from "../types/script-run";
+import type { InstalledTemplateRecord } from "../storage/keys";
 
 /** Response type mapping: message type → expected response */
 interface ResponseMap {
@@ -14,7 +18,7 @@ interface ResponseMap {
   SCRIPT_SAVE: { ok: boolean };
   SCRIPT_DELETE: { ok: boolean };
   SCRIPT_TOGGLE: { ok: boolean };
-  SCRIPT_RUN_NOW: { ok: boolean; error?: string };
+  SCRIPT_RUN_NOW: ScriptRunResult;
   SHORTCUT_SAVE: { ok: boolean };
   SHORTCUT_DELETE: { ok: boolean };
   SHORTCUT_TOGGLE: { ok: boolean };
@@ -36,6 +40,10 @@ interface ResponseMap {
   IMPORT_CONFIG: { ok: boolean };
   EXPORT_CONFIG: ExportResponse;
   INSTALL_TEMPLATE: { ok: boolean; error?: string };
+  UPDATE_TEMPLATE: { ok: boolean; error?: string; newVersion?: string };
+  GET_INSTALLED_TEMPLATES: { installed: Record<string, InstalledTemplateRecord> };
+  FETCH_TEMPLATE_CATALOG: TemplateCatalogResponse;
+  FETCH_SINGLE_TEMPLATE: { ok: boolean; template?: Template; error?: string };
   START_RECORDING_POPUP: undefined;
   STOP_RECORDING_POPUP: undefined;
   VARIABLE_SAVE: { ok: boolean };

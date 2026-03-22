@@ -3,9 +3,14 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { crx } from "@crxjs/vite-plugin";
 import manifest from "./manifest.json";
+import pkg from "./package.json";
 import { resolve } from "node:path";
 export default defineConfig({
-    plugins: [react(), tailwindcss(), crx({ manifest })],
+    plugins: [
+        react(),
+        tailwindcss(),
+        crx({ manifest: { ...manifest, version: pkg.version } }),
+    ],
     resolve: {
         alias: {
             "@": resolve(__dirname, "src"),

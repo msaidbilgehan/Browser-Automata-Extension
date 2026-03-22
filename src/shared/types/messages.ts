@@ -298,10 +298,28 @@ export interface ClearTestHighlightPopupMessage {
   type: "CLEAR_TEST_HIGHLIGHT_POPUP";
 }
 
-// Template install
+// Template install & remote catalog
 export interface InstallTemplateMessage {
   type: "INSTALL_TEMPLATE";
   templateId: string;
+}
+
+export interface UpdateTemplateMessage {
+  type: "UPDATE_TEMPLATE";
+  templateId: string;
+}
+
+export interface GetInstalledTemplatesMessage {
+  type: "GET_INSTALLED_TEMPLATES";
+}
+
+export interface FetchTemplateCatalogMessage {
+  type: "FETCH_TEMPLATE_CATALOG";
+}
+
+export interface FetchSingleTemplateMessage {
+  type: "FETCH_SINGLE_TEMPLATE";
+  slug: string;
 }
 
 // Log messages
@@ -469,6 +487,10 @@ export type PopupToSWMessage =
   | StartRecordingPopupMessage
   | StopRecordingPopupMessage
   | InstallTemplateMessage
+  | UpdateTemplateMessage
+  | GetInstalledTemplatesMessage
+  | FetchTemplateCatalogMessage
+  | FetchSingleTemplateMessage
   | GetLogMessage
   | ClearLogMessage
   | VariableSaveMessage
