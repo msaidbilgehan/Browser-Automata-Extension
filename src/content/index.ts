@@ -60,13 +60,14 @@ if (isContextValid()) {
 
 /** Number of CONTENT_READY retries attempted */
 let contentReadyRetries = 0;
-const MAX_CONTENT_READY_RETRIES = 2;
+/** Increased from 2 to 5: service worker wake-up can take several seconds on cold start */
+const MAX_CONTENT_READY_RETRIES = 5;
 const CONTENT_READY_RETRY_DELAY_MS = 500;
 
 function init(): void {
   if (!isContextValid()) return;
-  chrome.runtime.sendMessage({ type: "CONTENT_READY", url: location.href }).catch(() => {
-    // Service worker may not be ready yet — expected on first load
+  chrome.runtime.sendMessage({ type: "CONTENT_READY", url: location.href }).catch((err: unknown) => {
+    console.debug("[Browser Automata] CONTENT_READY send failed (expected on first load):", err);
   });
 
   // After a short delay, check if shortcuts were pushed. If not, retry
@@ -84,8 +85,8 @@ function scheduleRetryIfNeeded(): void {
     console.debug(
       `[Browser Automata] No shortcuts received yet, retrying CONTENT_READY (attempt ${String(contentReadyRetries)})`,
     );
-    chrome.runtime.sendMessage({ type: "CONTENT_READY", url: location.href, isRetry: true }).catch(() => {
-      // Service worker may not be ready yet
+    chrome.runtime.sendMessage({ type: "CONTENT_READY", url: location.href, isRetry: true }).catch((err: unknown) => {
+      console.debug("[Browser Automata] CONTENT_READY retry failed:", err);
     });
     scheduleRetryIfNeeded();
   }, CONTENT_READY_RETRY_DELAY_MS);

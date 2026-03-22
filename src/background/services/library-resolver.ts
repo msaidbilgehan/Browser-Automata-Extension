@@ -7,8 +7,9 @@
 import { localStore } from "@/shared/storage";
 import type { SharedLibrary } from "@/shared/types/entities";
 
-/** Pattern matching `// @use('lib-name')` or `// @use("lib-name")` directives */
-const USE_DIRECTIVE_RE = /^\/\/\s*@use\(['"]([^'"]+)['"]\)\s*$/gm;
+/** Pattern matching `// @use('lib-name')` or `// @use("lib-name")` directives.
+ *  Non-global source pattern — global instances are created per-call to avoid shared lastIndex state. */
+const USE_DIRECTIVE_PATTERN = /^\/\/\s*@use\(['"]([^'"]+)['"]\)\s*$/m;
 
 /**
  * Resolve `// @use('lib-name')` directives in `code`.
@@ -27,14 +28,14 @@ export async function resolveLibraries(code: string): Promise<string> {
     libByName.set(lib.name, lib);
   }
 
-  // Collect all referenced library names in order
+  // Collect all referenced library names in order.
+  // Create a fresh global regex per call to avoid shared lastIndex state.
+  const directiveRe = new RegExp(USE_DIRECTIVE_PATTERN.source, "gm");
   const referencedNames: string[] = [];
   const seen = new Set<string>();
   let match: RegExpExecArray | null;
 
-  // Reset lastIndex before using the global regex
-  USE_DIRECTIVE_RE.lastIndex = 0;
-  while ((match = USE_DIRECTIVE_RE.exec(code)) !== null) {
+  while ((match = directiveRe.exec(code)) !== null) {
     const name = match[1];
     if (name !== undefined && !seen.has(name)) {
       seen.add(name);
@@ -53,8 +54,9 @@ export async function resolveLibraries(code: string): Promise<string> {
     }
   }
 
-  // Strip directive lines from the original code
-  const strippedCode = code.replace(USE_DIRECTIVE_RE, "").trimStart();
+  // Strip directive lines from the original code (fresh regex for replace)
+  const stripRe = new RegExp(USE_DIRECTIVE_PATTERN.source, "gm");
+  const strippedCode = code.replace(stripRe, "").trimStart();
 
   if (prependBlocks.length === 0) return strippedCode;
 

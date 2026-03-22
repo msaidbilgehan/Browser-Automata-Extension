@@ -224,8 +224,8 @@ function isContextValid(): boolean {
 /** Notify the service worker that a shortcut was fired (for logging & complex execution) */
 function notifyServiceWorker(shortcutId: string): void {
   if (!isContextValid()) return;
-  chrome.runtime.sendMessage({ type: "SHORTCUT_FIRED", shortcutId }).catch(() => {
-    // Service worker may not be ready
+  chrome.runtime.sendMessage({ type: "SHORTCUT_FIRED", shortcutId }).catch((err: unknown) => {
+    console.debug("[Browser Automata] SHORTCUT_FIRED send failed (service worker may not be ready):", err);
   });
 }
 

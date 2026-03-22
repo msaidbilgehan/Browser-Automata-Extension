@@ -12,10 +12,14 @@ export async function getMatchingScripts(
   url: string,
   trigger: Script["trigger"],
 ): Promise<Script[]> {
-  const settings = await syncStore.get("settings");
+  // Parallel reads: settings and scripts are independent
+  const [settings, scriptsRecord] = await Promise.all([
+    syncStore.get("settings"),
+    localStore.get("scripts"),
+  ]);
   if (!settings?.globalEnabled) return [];
 
-  const scripts = (await localStore.get("scripts")) ?? {};
+  const scripts = scriptsRecord ?? {};
   const matching = Object.values(scripts).filter(
     (s) => s.enabled && s.trigger === trigger && matchUrl(s.scope, url),
   );

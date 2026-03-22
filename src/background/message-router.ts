@@ -364,8 +364,9 @@ async function dispatchMessage(
       // Ensure content script is injected, then send PICK_ELEMENT
       try {
         await chrome.tabs.sendMessage(tabId, { type: "PICK_ELEMENT" });
-      } catch {
+      } catch (pickErr) {
         // Content script not injected yet — inject programmatically
+        console.debug("[Browser Automata] PICK_ELEMENT send failed, injecting content script:", pickErr);
         // Read the content script path from the manifest so it works in both dev and production builds
         const manifest = chrome.runtime.getManifest();
         const contentJs = manifest.content_scripts?.[0]?.js?.[0];
@@ -437,8 +438,8 @@ async function dispatchMessage(
       if (!clearTabId) return { ok: false };
       try {
         await chrome.tabs.sendMessage(clearTabId, { type: "CLEAR_TEST_HIGHLIGHT" });
-      } catch {
-        // Content script may not be available
+      } catch (err) {
+        console.debug("[Browser Automata] CLEAR_TEST_HIGHLIGHT failed (content script may not be available):", err);
       }
       return { ok: true };
     }

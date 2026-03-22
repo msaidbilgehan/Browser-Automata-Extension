@@ -29,7 +29,7 @@ export async function pushQuickRunActionsToTab(tabId: number, url: string): Prom
       actions: allEnabled,
       matchingIds,
     });
-  } catch {
-    // Content script may not be ready yet — expected for non-http or still-loading tabs
+  } catch (err) {
+    console.debug(`[Browser Automata] pushQuickRunActionsToTab(${String(tabId)}) failed:`, err);
   }
 }

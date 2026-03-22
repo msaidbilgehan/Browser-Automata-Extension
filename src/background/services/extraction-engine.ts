@@ -183,10 +183,14 @@ export async function getMatchingExtractionRules(
   url: string,
   trigger: ExtractionTrigger,
 ): Promise<ExtractionRule[]> {
-  const settings = await syncStore.get("settings");
+  // Parallel reads: settings and rules are independent
+  const [settings, rulesRecord] = await Promise.all([
+    syncStore.get("settings"),
+    localStore.get("extractionRules"),
+  ]);
   if (!settings?.globalEnabled) return [];
 
-  const extractionRules = (await localStore.get("extractionRules")) ?? {};
+  const extractionRules = rulesRecord ?? {};
   return Object.values(extractionRules).filter(
     (r) => r.enabled && normalizeTriggers(r).includes(trigger) && matchUrl(r.scope, url),
   );
@@ -240,8 +244,8 @@ export async function processOutputActions(
         func: (text: string) => { void navigator.clipboard.writeText(text); },
         args: [formatted],
       });
-    } catch {
-      // Clipboard write can fail on restricted pages
+    } catch (err) {
+      console.debug("[Browser Automata] Clipboard write failed on restricted page:", err);
     }
   }
 
@@ -257,8 +261,8 @@ export async function processOutputActions(
         filename: `${safeName}.${ext}`,
         saveAs: false,
       });
-    } catch {
-      // Download can fail in some contexts
+    } catch (err) {
+      console.debug("[Browser Automata] Download failed:", err);
     }
   }
 
@@ -271,8 +275,8 @@ export async function processOutputActions(
         func: injectResultWidget,
         args: [formatted, rule.outputFormat, data.length, rule.name],
       });
-    } catch {
-      // Page injection can fail on restricted pages
+    } catch (err) {
+      console.debug("[Browser Automata] Page widget injection failed:", err);
     }
   }
 
@@ -280,8 +284,8 @@ export async function processOutputActions(
   if (actions.includes("show_tab")) {
     try {
       await openResultTab(formatted, rule.outputFormat, data.length, rule.name, false);
-    } catch {
-      // Tab creation can fail in rare cases
+    } catch (err) {
+      console.debug("[Browser Automata] Result tab creation failed:", err);
     }
   }
 }

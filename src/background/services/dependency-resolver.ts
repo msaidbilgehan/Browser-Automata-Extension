@@ -93,11 +93,13 @@ function collectProfileIds(entities: { profileId: EntityId | null }[]): Set<stri
 export async function resolveDependencies(
   filteredExport: BrowserAutomataExport,
 ): Promise<{ data: BrowserAutomataExport; summary: DependencySummary }> {
-  // Load all storage records we may need
-  const allFlows = (await localStore.get("flows")) ?? {};
-  const allScripts = (await localStore.get("scripts")) ?? {};
-  const allExtractionRules = (await localStore.get("extractionRules")) ?? {};
-  const allProfiles = (await localStore.get("profiles")) ?? {};
+  // Load all storage records in parallel (avoids 4 sequential async reads)
+  const [allFlows, allScripts, allExtractionRules, allProfiles] = await Promise.all([
+    localStore.get("flows").then((v) => v ?? {}),
+    localStore.get("scripts").then((v) => v ?? {}),
+    localStore.get("extractionRules").then((v) => v ?? {}),
+    localStore.get("profiles").then((v) => v ?? {}),
+  ]);
 
   // Track IDs already present in the export (use string sets since EntityId is branded)
   const existingFlowIds = new Set<string>((filteredExport.flows ?? []).map((f) => f.id as string));

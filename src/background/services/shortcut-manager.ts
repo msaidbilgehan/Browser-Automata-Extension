@@ -12,10 +12,14 @@ import { executeFlow } from "./flow-executor";
  * Get all active shortcuts matching a URL.
  */
 export async function getMatchingShortcuts(url: string): Promise<Shortcut[]> {
-  const settings = await syncStore.get("settings");
+  // Parallel reads: settings and shortcuts are independent
+  const [settings, shortcutsRecord] = await Promise.all([
+    syncStore.get("settings"),
+    localStore.get("shortcuts"),
+  ]);
   if (!settings?.globalEnabled) return [];
 
-  const shortcuts = (await localStore.get("shortcuts")) ?? {};
+  const shortcuts = shortcutsRecord ?? {};
   const allEnabled = Object.values(shortcuts).filter((s) => s.enabled);
 
   const targetScopes = await resolveTargetScopes(
@@ -48,13 +52,19 @@ export async function pushShortcutsToTab(tabId: number, url: string): Promise<vo
 /**
  * Push matching shortcuts to a tab as a Quick Tip overlay.
  * Only sends if the quickTip feature is enabled in settings.
+ * Accepts pre-fetched shortcuts to avoid redundant storage reads when
+ * called alongside pushShortcutsToTab.
  */
-export async function pushQuickTipToTab(tabId: number, url: string): Promise<void> {
+export async function pushQuickTipToTab(
+  tabId: number,
+  url: string,
+  prefetchedShortcuts?: Shortcut[],
+): Promise<void> {
   const stored = await syncStore.get("settings");
   const quickTip = { ...DEFAULT_SETTINGS.quickTip, ...stored?.quickTip };
   if (!quickTip.enabled) return;
 
-  const shortcuts = await getMatchingShortcuts(url);
+  const shortcuts = prefetchedShortcuts ?? await getMatchingShortcuts(url);
   if (shortcuts.length === 0) return;
 
   try {
@@ -93,8 +103,8 @@ export async function handleShortcutExecution(
 
   switch (shortcut.action.type) {
     case "script": {
-      const scripts = (await localStore.get("scripts")) ?? {};
-      const script = scripts[shortcut.action.scriptId];
+      const allScripts = (await localStore.get("scripts")) ?? {};
+      const script = allScripts[shortcut.action.scriptId];
       if (script) {
         await executeScript(tabId, script);
       }

@@ -42,8 +42,8 @@ export function startWatching(
         }
       }
     })
-    .catch(() => {
-      // Tab may have been closed or injection failed
+    .catch((err: unknown) => {
+      console.debug("[Browser Automata] Element watcher injection failed (tab may be closed):", err);
       activeWatchers.delete(watchId);
     });
 
@@ -90,8 +90,8 @@ export function stopWatching(watchId: string): void {
         func: disconnectObserver,
         args: [watchId],
       })
-      .catch(() => {
-        // Tab may already be closed
+      .catch((err: unknown) => {
+        console.debug("[Browser Automata] Element watcher disconnect failed (tab may be closed):", err);
       });
   }
 
@@ -128,13 +128,19 @@ function injectMutationObserver(selector: string, watchId: string): boolean {
   // Store the observer on window so we can disconnect later
   const observerKey = `__ba_watcher_${watchId}`;
 
+  // Debounce mutation callbacks to avoid expensive DOM queries on rapid mutations
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   const observer = new MutationObserver(() => {
-    const found = qsDeep(selector) !== null;
-    void chrome.runtime.sendMessage({
-      type: "ELEMENT_WATCHER_UPDATE",
-      watchId,
-      found,
-    });
+    if (debounceTimer !== null) return;
+    debounceTimer = setTimeout(() => {
+      debounceTimer = null;
+      const found = qsDeep(selector) !== null;
+      void chrome.runtime.sendMessage({
+        type: "ELEMENT_WATCHER_UPDATE",
+        watchId,
+        found,
+      });
+    }, 100);
   });
 
   observer.observe(document.documentElement, {

@@ -53,6 +53,9 @@ interface FlowContext {
   tabId: number;
 }
 
+/** O(1) node-to-step index lookup, built once per flow run */
+let stepIndexMap: Map<string, number> = new Map();
+
 // ─── Tab helpers ─────────────────────────────────────────────────────────────
 
 /** Wait until a tab reaches "complete" status (page fully loaded). */
@@ -128,6 +131,17 @@ export async function executeFlow(
     logs: [],
   };
 
+  // Build O(1) lookups (avoids repeated O(n) find/findIndex in loops and conditions)
+  stepIndexMap = new Map();
+  for (let i = 0; i < runState.steps.length; i++) {
+    const step = runState.steps[i];
+    if (step) stepIndexMap.set(step.nodeId, i);
+  }
+  nodeMap = new Map();
+  for (const node of flow.nodes) {
+    nodeMap.set(node.id, node);
+  }
+
   addRunLog("info", `Flow "${flow.name}" started`);
   await broadcastState();
 
@@ -177,6 +191,9 @@ export async function executeFlow(
     return { ok: false, error: errorMessage };
   } finally {
     runningFlows.delete(flowId);
+    // Release per-run lookup maps to avoid retaining stale references
+    stepIndexMap = new Map();
+    nodeMap = new Map();
   }
 }
 
@@ -189,11 +206,11 @@ async function walkNodes(flow: Flow, nodes: FlowNode[], ctx: FlowContext): Promi
 async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promise<void> {
   const config = node.config;
 
-  // Update run state — mark this node as running
+  // Update run state — mark this node as running (O(1) via stepIndexMap)
   if (runState) {
-    const stepIndex = runState.steps.findIndex((s) => s.nodeId === node.id);
-    const step = stepIndex >= 0 ? runState.steps[stepIndex] : undefined;
-    if (step) {
+    const stepIndex = stepIndexMap.get(node.id);
+    const step = stepIndex !== undefined ? runState.steps[stepIndex] : undefined;
+    if (step && stepIndex !== undefined) {
       runState.currentNodeIndex = stepIndex;
       step.status = "running";
       step.startedAt = now();
@@ -475,9 +492,10 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
         break;
     }
 
-    // Mark step as success
+    // Mark step as success (O(1) via stepIndexMap)
     if (runState) {
-      const step = runState.steps.find((s) => s.nodeId === node.id);
+      const idx = stepIndexMap.get(node.id);
+      const step = idx !== undefined ? runState.steps[idx] : undefined;
       if (step) {
         step.status = "success";
         step.completedAt = now();
@@ -496,9 +514,10 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
 
-    // Mark step as error
+    // Mark step as error (O(1) via stepIndexMap)
     if (runState) {
-      const step = runState.steps.find((s) => s.nodeId === node.id);
+      const idx = stepIndexMap.get(node.id);
+      const step = idx !== undefined ? runState.steps[idx] : undefined;
       if (step) {
         step.status = "error";
         step.completedAt = now();
@@ -569,6 +588,9 @@ async function injectAction(tabId: number, code: string): Promise<void> {
   });
 }
 
+/** O(1) node lookup by ID, built once per flow run */
+let nodeMap: Map<string, FlowNode> = new Map();
+
 async function executeCondition(
   flow: Flow,
   config: Extract<FlowNodeConfig, { type: "condition" }>,
@@ -590,7 +612,7 @@ async function executeCondition(
   const targetNodeId = passed ? config.thenNodeId : config.elseNodeId;
 
   if (targetNodeId) {
-    const targetNode = flow.nodes.find((n) => n.id === targetNodeId);
+    const targetNode = nodeMap.get(targetNodeId);
     if (targetNode) {
       await executeNode(flow, targetNode, ctx);
     }
@@ -631,8 +653,9 @@ async function executeLoop(
   config: Extract<FlowNodeConfig, { type: "loop" }>,
   ctx: FlowContext,
 ): Promise<void> {
+  // Resolve body nodes via O(1) map instead of O(n) find per node
   const bodyNodes = config.bodyNodeIds
-    .map((id) => flow.nodes.find((n) => n.id === id))
+    .map((id) => nodeMap.get(id))
     .filter((n): n is FlowNode => n !== undefined);
 
   if (config.count !== undefined) {

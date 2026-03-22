@@ -209,20 +209,20 @@ function renderBar(): void {
 
   barEl.removeAttribute("data-ba-hidden");
 
-  // Rebuild children
-  barEl.innerHTML = "";
+  // Rebuild children using DocumentFragment to batch DOM mutations
+  const fragment = document.createDocumentFragment();
 
   // Drag handle
   const dragHandle = document.createElement("div");
   dragHandle.setAttribute("data-ba-drag-handle", "");
   dragHandle.innerHTML = DRAG_ICON_SVG;
   dragHandle.addEventListener("mousedown", onDragStart);
-  barEl.appendChild(dragHandle);
+  fragment.appendChild(dragHandle);
 
   // Separator after drag handle
   const sep = document.createElement("div");
   sep.setAttribute("data-ba-separator", "");
-  barEl.appendChild(sep);
+  fragment.appendChild(sep);
 
   // Action buttons
   for (const action of displayActions) {
@@ -239,8 +239,12 @@ function renderBar(): void {
       void executeAction(action.id);
     });
 
-    barEl.appendChild(btn);
+    fragment.appendChild(btn);
   }
+
+  // Single DOM mutation: clear + append
+  barEl.innerHTML = "";
+  barEl.appendChild(fragment);
 }
 
 // ─── Action execution ───────────────────────────────────────────────────────

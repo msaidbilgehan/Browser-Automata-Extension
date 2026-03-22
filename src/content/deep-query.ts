@@ -128,15 +128,8 @@ function findFirst(
   if (isXPath(selector)) {
     const match = xpathQueryFirst(selector, root);
     if (match !== null) return match;
-    // Check shadow roots
-    const allElements = root.querySelectorAll("*");
-    for (const el of allElements) {
-      if (el.shadowRoot !== null) {
-        const found = xpathQueryFirst(selector, el.shadowRoot);
-        if (found !== null) return found;
-      }
-    }
-    return null;
+    // Check shadow roots using efficient element iteration
+    return findFirstInShadowRoots(root, (sr) => xpathQueryFirst(selector, sr));
   }
 
   try {
@@ -146,13 +139,30 @@ function findFirst(
     // skip
   }
 
-  // Check shadow roots of all elements in this root
-  const allElements = root.querySelectorAll("*");
-  for (const el of allElements) {
+  // Check shadow roots depth-first
+  return findFirstInShadowRoots(root, (sr) => findFirst(sr, selector));
+}
+
+/**
+ * Iterate elements with shadow roots in `root` and call `fn` on each.
+ * Returns the first non-null result, enabling early exit without
+ * materializing the full `querySelectorAll("*")` NodeList.
+ */
+function findFirstInShadowRoots(
+  root: Document | ShadowRoot,
+  fn: (sr: ShadowRoot) => Element | null,
+): Element | null {
+  const rootNode = root instanceof Document ? root.documentElement : root;
+  if (!rootNode) return null;
+  const walker = document.createTreeWalker(rootNode, NodeFilter.SHOW_ELEMENT);
+  let node = walker.nextNode();
+  while (node !== null) {
+    const el = node as Element;
     if (el.shadowRoot !== null) {
-      const found = findFirst(el.shadowRoot, selector);
+      const found = fn(el.shadowRoot);
       if (found !== null) return found;
     }
+    node = walker.nextNode();
   }
   return null;
 }

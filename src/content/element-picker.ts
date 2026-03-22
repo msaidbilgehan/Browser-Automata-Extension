@@ -183,13 +183,21 @@ function childSegment(el: Element, parent: Element): string {
     }
   }
 
+  // Cache children array once for tag check and nth-child fallback
+  const children = parent.children;
+  let sameTagCount = 0;
+  let childIndex = -1;
+  for (let i = 0; i < children.length; i++) {
+    const child = children[i];
+    if (child === el) childIndex = i;
+    if (child?.tagName === el.tagName) sameTagCount++;
+  }
+
   // Tag alone if unique among siblings
-  const sameTagSiblings = Array.from(parent.children).filter((s) => s.tagName === el.tagName);
-  if (sameTagSiblings.length === 1) return tag;
+  if (sameTagCount === 1) return tag;
 
   // nth-child as last resort
-  const index = Array.from(parent.children).indexOf(el) + 1;
-  return `${tag}:nth-child(${String(index)})`;
+  return `${tag}:nth-child(${String(childIndex + 1)})`;
 }
 
 // ─── Alternative selector types (mirrored from shared/types/entities) ────────
