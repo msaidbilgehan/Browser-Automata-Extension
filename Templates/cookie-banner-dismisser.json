@@ -7,19 +7,19 @@
     {
       "id": "tpl-cookie-banner-dismisser",
       "name": "Cookie Banner Dismisser",
-      "description": "Automatically clicks common cookie consent/accept buttons on page load.",
+      "description": "Automatically dismisses cookie consent banners on page load using 30+ selectors, text-based button matching, and a MutationObserver fallback for late-appearing banners.",
       "category": "privacy",
       "tags": ["cookies", "consent", "privacy", "auto-dismiss", "page_load"],
       "meta": {
         "createdAt": "2024-01-01T00:00:00.000Z",
-        "updatedAt": "2024-01-01T00:00:00.000Z",
-        "templateVersion": "1.0.0"
+        "updatedAt": "2026-03-22T00:00:00.000Z",
+        "templateVersion": "2.0.0"
       },
       "scripts": [
         {
           "name": "Cookie Banner Dismisser",
-          "description": "Clicks common cookie consent buttons",
-          "code": "(function() {\n  const selectors = [\n    \"#accept-cookies\",\n    \".cookie-accept\",\n    \"[data-consent=\\\"accept\\\"]\",\n    \"#cookie-accept-btn\",\n    \".accept-cookies-button\",\n    \"#onetrust-accept-btn-handler\",\n    \".js-accept-cookies\",\n    \"[aria-label=\\\"Accept cookies\\\"]\",\n    \".cookie-consent-accept\",\n    \"#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll\"\n  ];\n  for (const sel of selectors) {\n    const el = document.querySelector(sel);\n    if (el instanceof HTMLElement) {\n      el.click();\n      break;\n    }\n  }\n})();",
+          "description": "Dismisses cookie consent banners using selector matching, text matching, and a MutationObserver fallback for late-appearing banners",
+          "code": "(function() {\n  const SELECTORS = [\n    \"#onetrust-accept-btn-handler\",\n    \"#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll\",\n    \"#CybotCookiebotDialogBodyButtonDecline\",\n    \".cc-accept\",\n    \".cc-dismiss\",\n    \"#accept-cookies\",\n    \".cookie-accept\",\n    \"[data-consent=\\\"accept\\\"]\",\n    \"#cookie-accept-btn\",\n    \".accept-cookies-button\",\n    \".js-accept-cookies\",\n    \"[aria-label=\\\"Accept cookies\\\"]\",\n    \"[aria-label=\\\"Accept all cookies\\\"]\",\n    \".cookie-consent-accept\",\n    \".cookie-notice__accept\",\n    \"#gdpr-cookie-accept\",\n    \".gdpr-accept\",\n    \"#cookiescript_accept\",\n    \".cmplz-accept\",\n    \"#hs-eu-confirmation-button\",\n    \".fc-cta-consent\",\n    \".qc-cmp2-summary-buttons button[mode=\\\"primary\\\"]\",\n    \"#didomi-notice-agree-button\",\n    \".sp_choice_type_11\",\n    \"[data-testid=\\\"cookie-policy-manage-dialog-btn-accept\\\"]\",\n    \"#consent_prompt_submit\",\n    \".cn-accept\",\n    \"#ez-accept-all\",\n    \".cli-plugin-button\"\n  ];\n\n  const TEXT_PATTERNS = /^(accept(\\s+all)?|agree|allow(\\s+all)?|got it|i agree|okay|ok|consent|allow cookies|accept cookies|accept all cookies)$/i;\n\n  function clickBySelectorMatch() {\n    for (const sel of SELECTORS) {\n      const el = document.querySelector(sel);\n      if (el instanceof HTMLElement && el.offsetParent !== null) {\n        el.click();\n        return true;\n      }\n    }\n    return false;\n  }\n\n  function clickByTextMatch() {\n    const candidates = document.querySelectorAll('button, a[role=\\\"button\\\"], [class*=\\\"cookie\\\"] button, [class*=\\\"consent\\\"] button, [id*=\\\"cookie\\\"] button, [id*=\\\"consent\\\"] button');\n    for (const el of candidates) {\n      if (el instanceof HTMLElement && el.offsetParent !== null) {\n        const text = (el.textContent || '').trim();\n        if (TEXT_PATTERNS.test(text)) {\n          el.click();\n          return true;\n        }\n      }\n    }\n    return false;\n  }\n\n  function dismiss() {\n    return clickBySelectorMatch() || clickByTextMatch();\n  }\n\n  if (dismiss()) return;\n\n  var observer = new MutationObserver(function() {\n    if (dismiss()) {\n      observer.disconnect();\n    }\n  });\n  observer.observe(document.body, { childList: true, subtree: true });\n  setTimeout(function() { observer.disconnect(); }, 8000);\n})();",
           "trigger": "page_load",
           "scope": { "type": "global", "value": "*" },
           "executionWorld": "MAIN",

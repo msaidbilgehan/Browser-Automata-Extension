@@ -32,7 +32,8 @@ import {
 import { importConfig, exportConfig, filterExportBySection } from "./services/import-export";
 import { resolveDependencies } from "./services/dependency-resolver";
 import { detectImportConflicts, importSelective } from "./services/import-conflict-detector";
-import { installTemplate } from "./services/template-installer";
+import { installTemplate, updateTemplate, getInstalledTemplates } from "./services/template-installer";
+import { fetchTemplateCatalog, fetchSingleTemplate } from "./services/template-registry";
 import { handleVariableSave, handleVariableDelete } from "./handlers/variable-handler";
 import { handleLibrarySave, handleLibraryDelete } from "./handlers/library-handler";
 import { handleNetworkRuleSave, handleNetworkRuleDelete } from "./handlers/network-handler";
@@ -199,6 +200,18 @@ async function dispatchMessage(
     // ─── Phase 3: Template install ─────────────────────────────────────
     case "INSTALL_TEMPLATE":
       return installTemplate(message.templateId);
+
+    case "UPDATE_TEMPLATE":
+      return updateTemplate(message.templateId);
+
+    case "GET_INSTALLED_TEMPLATES":
+      return { installed: await getInstalledTemplates() };
+
+    case "FETCH_TEMPLATE_CATALOG":
+      return fetchTemplateCatalog();
+
+    case "FETCH_SINGLE_TEMPLATE":
+      return fetchSingleTemplate(message.slug);
 
     // ─── Phase 4: Variable messages ────────────────────────────────────
     case "VARIABLE_SAVE":
