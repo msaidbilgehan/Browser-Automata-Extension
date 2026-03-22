@@ -4,6 +4,35 @@ All notable changes to Browser Automata are documented in this file.
 
 ---
 
+## v0.2.3 — 2026-03-22
+
+> Quick Run floating action bar, template lifecycle management, and new entity type for single-click automation execution.
+
+### New Features
+
+- **Quick Run Action Bar** — Floating, draggable action bar rendered on web pages for one-click execution of scripts, flows, extraction rules, or form fill profiles. Scoped to URL patterns so only relevant actions appear. Toggle visibility with `Alt+Q` (configurable). Position persists across sessions.
+- **Quick Run Popup View** — New 14th tab in the popup for creating, editing, reordering, and toggling quick actions. Each action targets a specific entity (script, flow, extraction rule, or form fill profile) and can be scoped globally or to URL patterns.
+- **Quick Run In-Popup Buttons** — Quick action buttons also appear in the popup UI above the tab bar for fast access without switching to the Quick Run tab.
+- **Template Status Tracking** — Templates now track installation status with six states: `not_installed`, `installed`, `update_available`, `local_modified`, `update_and_modified`, and `removed`. Content hashing (SHA-256) detects both upstream updates and local modifications.
+- **Template Uninstall & Reset** — Uninstall removes all entities installed by a template and clears the installation record. Reset discards local modifications and reinstalls from the bundled source.
+
+### Architecture
+
+- **QuickRunAction entity** — New entity type with discriminated union target (`script`, `flow`, `extraction`, `form_fill`), URL pattern scoping, ordering, enable/disable toggle, and optional custom color.
+- **Quick Run handler & manager** — New `quick-run-handler.ts` dispatches `QUICK_RUN_SAVE`, `QUICK_RUN_DELETE`, `QUICK_RUN_REORDER`, `QUICK_RUN_EXECUTE`, and `QUICK_RUN_GET_MATCHING` messages. `quick-run-manager.ts` handles storage CRUD, URL-scoped matching, and execution routing.
+- **Quick Run bar content script** — New `quick-run-bar.ts` renders a shadow-DOM-isolated floating bar with icon buttons per action, drag-to-reposition, and keyboard toggle.
+- **Template content hashing** — New `template-hash.ts` utility computes SHA-256 hashes for template content comparison. `template-installer.ts` now stores `contentHash` and `templateName` with each installation record.
+- **Template status detection** — New `GET_TEMPLATE_STATUSES` message compares local hash against remote hash to compute per-template status (installed, modified, update available, etc.).
+- **Entity origin tracking** — All entity types now include an optional `templateId` field to track which template installed them, enabling uninstall and reset operations.
+
+### Improvements
+
+- **Template registry entries** now include `contentHash` and `updatedAt` fields for update detection.
+- **Bundled templates** updated with content hashes and timestamps.
+- **Default landing tab** changed to Quick Run for faster access to common actions.
+
+---
+
 ## v0.2.1 — 2026-03-21
 
 > Performance optimization, code quality overhaul, and accessibility improvements across the entire codebase.

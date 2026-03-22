@@ -4,7 +4,7 @@
 
 Wire keyboard shortcuts to page elements, execute JavaScript on any domain, extract structured data, chain multi-step flows, inject custom CSS, intercept network requests — all from a compact popup UI. Pre-built templates lower the entry barrier for non-technical users, but the engine never constrains power users.
 
-> **Status:** v0.2.1 · Chrome Extension (Manifest V3) · Private License
+> **Status:** v0.2.3 · Chrome Extension (Manifest V3) · Private License
 
 ---
 
@@ -64,6 +64,7 @@ The goal is to be the single extension that replaces a collection of single-purp
 | **Keyboard Shortcuts** | Bind any key combination to actions — click, focus, navigate, run a script, run a flow, or trigger an extraction rule. Supports chord combos (e.g., `g` then `i` for GitHub Issues). Live conflict warnings for browser and extension collisions. |
 | **CSS Injection** | Inject custom stylesheets scoped to domains or URL patterns. Inject at `document_start` or `document_idle`. |
 | **URL Pattern Scoping** | Scope any automation to exact URLs, glob patterns, regex, or globally. Specificity rules determine priority. |
+| **Quick Run Bar** | Floating action bar on web pages for single-click execution of scripts, flows, extraction rules, or form fills. Draggable, URL-scoped, and toggleable with `Alt+Q`. |
 | **Shortcut Conflict Detection** | Detects collisions between shortcuts and warns before saving. |
 | **Shortcut Debounce** | 100ms debounce per shortcut prevents accidental rapid-fire triggers. |
 
@@ -112,7 +113,7 @@ The goal is to be the single extension that replaces a collection of single-purp
 | **Global Kill Switch** | Instantly disable all automations from the popup header. |
 | **Activity Log** | Timestamped, filterable log with virtual scrolling for 5,000+ entries. |
 | **Error Surfacing** | Badge icon and desktop notifications on script errors. |
-| **Pre-Built Templates** | One-click install: Cookie Dismisser, Video Navigator, Dark Mode, Element Hider, Auto-Clicker, and more. |
+| **Pre-Built Templates** | One-click install: Cookie Dismisser, Video Navigator, Dark Mode, Element Hider, Auto-Clicker, and more. Template status tracking with update detection, uninstall, and reset to defaults. |
 
 ---
 
@@ -192,6 +193,15 @@ These examples require no coding knowledge. Use the popup UI and pre-built templ
 1. Install the **Element Hider** template.
 2. Use the **Element Picker** to visually select an element you want to hide.
 3. The generated selector is automatically saved — the element disappears on future visits.
+
+### Use Quick Run Actions
+
+1. Open the Browser Automata popup.
+2. Navigate to the **Quick Run** tab.
+3. Click **Add Action** and choose a target: a script, flow, extraction rule, or form fill profile.
+4. Optionally scope it to specific URLs (e.g., `*://github.com/*`).
+5. The action appears as a button on matching pages in the floating Quick Run bar.
+6. Click it once to execute — or toggle the bar with `Alt+Q`.
 
 ### Switch Between Profiles
 
@@ -390,9 +400,9 @@ Browser Automata follows Chrome's extension architecture with three isolated con
 
 **Service Worker** — Always-running background context. Handles message routing (with global error handler), script execution, storage CRUD, scheduling, and all business logic. Concurrent flow execution is guarded to prevent race conditions.
 
-**Content Script** — Injected into every tab. Listens for keyboard shortcuts (with 100ms debounce), provides element picking, action recording, data extraction, and selector testing. Wrapped in error boundary for crash resilience.
+**Content Script** — Injected into every tab. Listens for keyboard shortcuts (with 100ms debounce), provides element picking, action recording, data extraction, selector testing, and the Quick Run floating action bar. Wrapped in error boundary for crash resilience.
 
-**Popup UI** — React application (400×580px). Provides the 13-tab interface for managing all automation entities. Uses shared `ViewRouter` for lazy-loaded views (deduplicated between popup and options). State cached via session storage for fast popup reopening.
+**Popup UI** — React application (400×580px). Provides the 14-tab interface for managing all automation entities. Uses shared `ViewRouter` for lazy-loaded views (deduplicated between popup and options). State cached via session storage for fast popup reopening.
 
 **Options Page** — Full-page editor with sidebar layout, sharing the same `ViewRouter` and views as the popup.
 
@@ -411,6 +421,7 @@ All entities share a common `EntityMeta` base (timestamps, IDs) and are stored i
 - **SharedLibrary** — Reusable code modules
 - **FormFillProfile** — Auto-fill field mappings
 - **NotificationRule** — Element monitoring with alert triggers
+- **QuickRunAction** — Single-click action buttons scoped to URL patterns, targeting scripts, flows, extraction rules, or form fills
 
 ---
 
@@ -439,8 +450,8 @@ browser-automata/
 │   ├── background/              # Service Worker context
 │   │   ├── service-worker.ts    # Entry point; synchronous listener registration
 │   │   ├── message-router.ts    # Dispatch table for all message types
-│   │   ├── handlers/            # One handler per entity domain (14 handlers)
-│   │   └── services/            # Business logic & execution engines (28 services)
+│   │   ├── handlers/            # One handler per entity domain (15 handlers)
+│   │   └── services/            # Business logic & execution engines (29 services)
 │   ├── content/                 # Content Script (injected per-tab)
 │   │   ├── index.ts             # Entry: storage sync, message listener
 │   │   ├── shortcut-listener.ts # Keyboard event binding
@@ -451,6 +462,7 @@ browser-automata/
 │   │   ├── selector-widget.ts   # Selector alternatives overlay
 │   │   ├── action-highlight.ts  # Visual feedback for recorded actions
 │   │   ├── deep-query.ts        # Shadow DOM piercing queries
+│   │   ├── quick-run-bar.ts     # Floating quick-action bar overlay
 │   │   ├── toast.ts             # In-page toast notifications
 │   │   └── content.css          # Content script styles
 │   ├── popup/                   # Popup UI (React + Tailwind)
@@ -462,8 +474,9 @@ browser-automata/
 │   │   ├── components/
 │   │   │   ├── Header.tsx       # Popup header with global controls
 │   │   │   ├── TabBar.tsx       # Bottom navigation with keyboard nav + ARIA
+│   │   │   ├── QuickRunBar.tsx   # Quick-action buttons in popup
 │   │   │   ├── ViewRouter.tsx   # Shared lazy-loaded view routing (popup + options)
-│   │   │   ├── views/           # 13 tab panels (Scripts, Shortcuts, Flows, ...)
+│   │   │   ├── views/           # 14 tab panels (Quick Run, Scripts, Shortcuts, Flows, ...)
 │   │   │   ├── editor/          # CodeMirror wrapper, selector inputs
 │   │   │   │   └── flow-nodes/  # Split FlowNodeEditor sub-components (7 files)
 │   │   │   └── ui/              # Shared primitives (Button, Input, Toggle, ...)
@@ -478,6 +491,7 @@ browser-automata/
 │   │   ├── url-pattern/         # URL pattern matching & specificity
 │   │   ├── constants.ts         # Storage keys, defaults, schema version
 │   │   ├── utils.ts             # Cross-context utility functions
+│   │   ├── template-hash.ts     # SHA-256 content hashing for templates
 │   │   ├── deep-query-snippet.ts # Shadow DOM query snippet
 │   │   └── theme.css            # Shared theme variables
 │   ├── data/templates/          # Bundled pre-built templates

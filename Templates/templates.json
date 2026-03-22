@@ -1,22 +1,32 @@
 {
   "video-navigator": {
     "version": ">=0.2.1",
-    "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/video-navigator.json"
+    "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/video-navigator.json",
+    "contentHash": "0a4305c642a5e21e017a38bba459936c7cf12e13c02f0774d52ae58d92900074",
+    "updatedAt": "2026-03-22T00:00:00.000Z"
   },
   "element-hider": {
     "version": ">=0.2.1",
-    "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/element-hider.json"
+    "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/element-hider.json",
+    "contentHash": "4c9aefa5a7735ffb10fd5ae87dd069550a61ab95e330af6be91033184f9c696f",
+    "updatedAt": "2026-03-22T00:00:00.000Z"
   },
   "dark-mode-injector": {
     "version": ">=0.2.1",
-    "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/dark-mode-injector.json"
+    "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/dark-mode-injector.json",
+    "contentHash": "50780b680adcb9635f63516c59338b09c3c869b68ca11a552fe0aad04f89ca65",
+    "updatedAt": "2026-03-22T00:00:00.000Z"
   },
   "cookie-banner-dismisser": {
     "version": ">=0.2.1",
-    "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/cookie-banner-dismisser.json"
+    "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/cookie-banner-dismisser.json",
+    "contentHash": "c4fee3b5bc4e1091cea73d3712784a472f3eb8b6a37995c3bc338b76c4b859d6",
+    "updatedAt": "2026-03-22T00:00:00.000Z"
   },
   "auto-clicker": {
     "version": ">=0.2.1",
-    "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/auto-clicker.json"
+    "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/auto-clicker.json",
+    "contentHash": "db91b3f5f1d3d03c142a013f604f7eee9543b197fccd91d93673d49f8111b1d4",
+    "updatedAt": "2026-03-22T00:00:00.000Z"
   }
 }
