@@ -12,6 +12,9 @@ export interface UrlPattern {
   value: string;
 }
 
+/** How a Quick Run action or Shortcut resolves its URL scope relative to its target entity */
+export type ScopeMode = "custom" | "follow" | "override";
+
 /** Common metadata shared by all entities */
 export interface EntityMeta {
   createdAt: ISOTimestamp;
@@ -78,6 +81,8 @@ export interface Shortcut {
   keyCombo: KeyCombo | ChordCombo;
   action: ShortcutAction;
   scope: UrlPattern;
+  /** How scope interacts with the target entity's scope (script/flow/extraction) */
+  scopeMode?: ScopeMode;
   enabled: boolean;
   profileId: EntityId | null;
   meta: EntityMeta;
@@ -444,6 +449,8 @@ export interface QuickRunAction {
   target: QuickRunTarget;
   /** URL scoping — only show this action when the current page matches */
   scope: UrlPattern;
+  /** How scope interacts with the target entity's scope */
+  scopeMode?: ScopeMode;
   /** Ordering position in the bar */
   order: number;
   enabled: boolean;

@@ -14,7 +14,7 @@ import {
 import { handleCSSRuleSave, handleCSSRuleDelete } from "./handlers/css-handler";
 import { handleGetLog, handleClearLog } from "./handlers/log-handler";
 import { runScriptNow, injectPageLoadScripts } from "./services/script-manager";
-import { pushShortcutsToTab, handleShortcutExecution } from "./services/shortcut-manager";
+import { pushShortcutsToTab, pushQuickTipToTab, handleShortcutExecution } from "./services/shortcut-manager";
 import { injectMatchingCSS } from "./services/css-injector";
 import { runPageLoadExtractions, openResultTab, testExtraction } from "./services/extraction-engine";
 import { showErrorBadge } from "./services/error-surfacer";
@@ -128,15 +128,19 @@ async function dispatchMessage(
       const tabId = sender.tab?.id;
       if (tabId) {
         if (message.isRetry) {
-          // Retries only need to re-push shortcuts — skip scripts, CSS, and extractions
-          await pushShortcutsToTab(tabId, message.url);
+          // Retries re-push shortcuts and quick run actions — skip scripts, CSS, and extractions
+          await Promise.all([
+            pushShortcutsToTab(tabId, message.url),
+            pushQuickRunActionsToTab(tabId, message.url),
+          ]);
         } else {
-          // First load: inject scripts, CSS, push shortcuts, quick run actions, and run page_load extractions
+          // First load: inject scripts, CSS, push shortcuts, quick run/tip actions, and run page_load extractions
           await Promise.all([
             injectPageLoadScripts(tabId, message.url),
             injectMatchingCSS(tabId, message.url),
             pushShortcutsToTab(tabId, message.url),
             pushQuickRunActionsToTab(tabId, message.url),
+            pushQuickTipToTab(tabId, message.url),
             runPageLoadExtractions(tabId, message.url),
           ]);
         }
@@ -449,6 +453,7 @@ async function dispatchMessage(
     case "TEST_SELECTOR":
     case "CLEAR_TEST_HIGHLIGHT":
     case "UPDATE_QUICK_RUN_ACTIONS":
+    case "UPDATE_QUICK_TIP_SHORTCUTS":
       // These are SW → content messages, not handled here
       return undefined;
 

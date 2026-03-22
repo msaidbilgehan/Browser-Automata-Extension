@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Keyboard, Plus, ArrowLeft, ArrowRight, Save, Trash2, Undo2, Copy } from "lucide-react";
 import { SectionExportImport } from "../ui/SectionExportImport";
-import type { Shortcut, ShortcutAction, KeyCombo, EntityId, Flow } from "@/shared/types/entities";
+import type { Shortcut, ShortcutAction, KeyCombo, EntityId, Flow, ScopeMode, UrlPattern } from "@/shared/types/entities";
 import { generateId, now } from "@/shared/utils";
 import { localStore } from "@/shared/storage";
 import { useShortcutsStore } from "../../stores/shortcuts-store";
@@ -68,6 +68,48 @@ const ACTION_TYPE_OPTIONS = [
   { value: "extraction", label: "Run Extraction" },
 ];
 
+/** Action types that reference a target entity with its own scope */
+const ENTITY_ACTION_TYPES = new Set<ShortcutAction["type"]>(["script", "flow", "extraction"]);
+
+const SCOPE_MODE_OPTIONS = [
+  { value: "custom", label: "Custom Domain Rule" },
+  { value: "follow", label: "Follow Action Rule" },
+  { value: "override", label: "Add Domain Rule over Action Rule" },
+];
+
+/** Load the target entity's scope for preview purposes */
+function useShortcutTargetScope(action: ShortcutAction): UrlPattern | null {
+  const [targetScope, setTargetScope] = useState<UrlPattern | null>(null);
+
+  useEffect(() => {
+    if (!ENTITY_ACTION_TYPES.has(action.type)) {
+      setTargetScope(null);
+      return;
+    }
+    void (async () => {
+      switch (action.type) {
+        case "script": {
+          const scripts = (await localStore.get("scripts")) ?? {};
+          setTargetScope(scripts[action.scriptId]?.scope ?? null);
+          break;
+        }
+        case "flow": {
+          const flows = (await localStore.get("flows")) ?? {};
+          setTargetScope(flows[action.flowId]?.scope ?? null);
+          break;
+        }
+        case "extraction": {
+          const rules = (await localStore.get("extractionRules")) ?? {};
+          setTargetScope(rules[action.extractionRuleId]?.scope ?? null);
+          break;
+        }
+      }
+    })();
+  }, [action]);
+
+  return targetScope;
+}
+
 function ShortcutEditor({
   initial,
   isNew,
@@ -87,6 +129,9 @@ function ShortcutEditor({
     initial,
     saved: isNew ? null : initial,
   });
+
+  const showScopeMode = ENTITY_ACTION_TYPES.has(draft.action.type);
+  const targetScope = useShortcutTargetScope(draft.action);
 
   const comboForConflict = isKeyCombo(draft.keyCombo) ? draft.keyCombo : null;
   const keyConflicts = useKeyComboConflicts(comboForConflict, draft.scope, draft.id);
@@ -189,13 +234,24 @@ function ShortcutEditor({
         return;
     }
     patch("action", action);
+    // Reset scopeMode when switching to a non-entity action type
+    if (!ENTITY_ACTION_TYPES.has(type)) {
+      patch("scopeMode", undefined);
+    }
   };
 
   const handleSave = async () => {
+    // Build updated shortcut; strip scopeMode for non-entity action types
+    const effectiveScopeMode = ENTITY_ACTION_TYPES.has(draft.action.type) ? draft.scopeMode : undefined;
     const updated: Shortcut = {
       ...draft,
       meta: { ...draft.meta, updatedAt: now() },
     };
+    if (effectiveScopeMode !== undefined) {
+      updated.scopeMode = effectiveScopeMode;
+    } else {
+      delete updated.scopeMode;
+    }
     await save(updated);
     await commitDraft();
     void clearEditorDraft();
@@ -375,11 +431,41 @@ function ShortcutEditor({
           />
         )}
 
-        <UrlPatternInput
-          label="Scope"
-          value={draft.scope}
-          onChange={handleScopeChange}
-        />
+        {/* Scope Mode — only for entity-referencing action types */}
+        {showScopeMode ? (
+          <>
+            <Select
+              label="Domain Rule"
+              options={SCOPE_MODE_OPTIONS}
+              value={draft.scopeMode ?? "custom"}
+              onChange={(e) => {
+                patch("scopeMode", e.target.value as ScopeMode);
+              }}
+            />
+
+            {/* Target scope preview */}
+            {draft.scopeMode && draft.scopeMode !== "custom" && targetScope ? (
+              <div className="bg-bg-tertiary border-border rounded-md border px-2.5 py-1.5">
+                <span className="text-text-muted text-[10px]">Action scope: </span>
+                <span className="text-text-secondary text-[10px] font-medium">
+                  {targetScope.type === "global" ? "All sites" : targetScope.value || targetScope.type}
+                </span>
+              </div>
+            ) : null}
+            {draft.scopeMode && draft.scopeMode !== "custom" && !targetScope ? (
+              <p className="text-warning text-[10px]">Target entity not found — will fall back to custom scope.</p>
+            ) : null}
+          </>
+        ) : null}
+
+        {/* URL Scope — hidden when following action rule */}
+        {draft.scopeMode !== "follow" ? (
+          <UrlPatternInput
+            label={draft.scopeMode === "override" ? "Additional Scope" : "Scope"}
+            value={draft.scope}
+            onChange={handleScopeChange}
+          />
+        ) : null}
 
         <div className="flex items-center justify-between pt-1">
           <Toggle

@@ -12,6 +12,7 @@ import { highlightSelector, clearHighlights } from "./selector-tester";
 import { initToast, updateToastSettings } from "./toast";
 import { updateHighlightSettings } from "./action-highlight";
 import { initQuickRunBar, setQuickRunActions } from "./quick-run-bar";
+import { initQuickTip, showQuickTipShortcuts } from "./quick-tip";
 
 /** Returns false when the extension has been reloaded/uninstalled and this content script is orphaned */
 function isContextValid(): boolean {
@@ -34,6 +35,7 @@ function applyFeedbackSettings(feedback: Settings["feedback"]): void {
 initShortcutListener();
 initToast();
 initQuickRunBar();
+initQuickTip();
 
 // Load initial feedback settings and listen for changes
 if (isContextValid()) {
@@ -130,7 +132,10 @@ chrome.runtime.onMessage.addListener(
           clearHighlights();
           break;
         case "UPDATE_QUICK_RUN_ACTIONS":
-          setQuickRunActions(message.actions);
+          setQuickRunActions(message.actions, message.matchingIds);
+          break;
+        case "UPDATE_QUICK_TIP_SHORTCUTS":
+          showQuickTipShortcuts(message.shortcuts);
           break;
       }
     } catch (err) {

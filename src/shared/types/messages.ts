@@ -482,11 +482,22 @@ export interface QuickRunGetMatchingResponse {
   actions: QuickRunAction[];
 }
 
+// ─── Service Worker → Content Script (Quick Tip) ────────────────────────────
+
+export interface UpdateQuickTipShortcutsMessage {
+  type: "UPDATE_QUICK_TIP_SHORTCUTS";
+  /** Shortcuts matching the current page (for the quick tip overlay) */
+  shortcuts: Shortcut[];
+}
+
 // ─── Service Worker → Content Script (Quick Run) ────────────────────────────
 
 export interface UpdateQuickRunActionsMessage {
   type: "UPDATE_QUICK_RUN_ACTIONS";
+  /** All enabled actions (sorted by order) */
   actions: QuickRunAction[];
+  /** IDs of actions whose scope matches the current page URL */
+  matchingIds: string[];
 }
 
 // ─── Service Worker → Popup/Options (Responses) ────────────────────────────
@@ -612,7 +623,8 @@ export type SWToContentMessage =
   | ExtractDataMessage
   | TestSelectorMessage
   | ClearTestHighlightMessage
-  | UpdateQuickRunActionsMessage;
+  | UpdateQuickRunActionsMessage
+  | UpdateQuickTipShortcutsMessage;
 
 /** All messages */
 export type Message = PopupToSWMessage | ContentToSWMessage | SWToContentMessage;

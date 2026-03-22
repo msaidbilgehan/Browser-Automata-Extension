@@ -1,6 +1,8 @@
 import { localStore, syncStore } from "@/shared/storage";
-import { matchUrl } from "@/shared/url-pattern/matcher";
+import { matchUrlWithScopeMode } from "@/shared/url-pattern/matcher";
+import { resolveTargetScopes } from "./scope-resolver";
 import type { Shortcut, EntityId } from "@/shared/types/entities";
+import { DEFAULT_SETTINGS } from "@/shared/types/settings";
 import { appendLogEntry } from "@/background/handlers/log-handler";
 import { executeScript } from "./script-manager";
 import { runExtraction, processOutputActions } from "./extraction-engine";
@@ -14,7 +16,15 @@ export async function getMatchingShortcuts(url: string): Promise<Shortcut[]> {
   if (!settings?.globalEnabled) return [];
 
   const shortcuts = (await localStore.get("shortcuts")) ?? {};
-  return Object.values(shortcuts).filter((s) => s.enabled && matchUrl(s.scope, url));
+  const allEnabled = Object.values(shortcuts).filter((s) => s.enabled);
+
+  const targetScopes = await resolveTargetScopes(
+    allEnabled.map((s) => ({ id: s.id, scopeMode: s.scopeMode, target: s.action })),
+  );
+
+  return allEnabled.filter((s) =>
+    matchUrlWithScopeMode(s.scope, targetScopes.get(s.id) ?? null, s.scopeMode, url),
+  );
 }
 
 /**
@@ -32,6 +42,28 @@ export async function pushShortcutsToTab(tabId: number, url: string): Promise<vo
     // Tab may not have content script ready yet — expected for non-http tabs
     // or tabs still loading. Log at debug level for troubleshooting.
     console.debug(`[Browser Automata] pushShortcutsToTab(${String(tabId)}) failed:`, err);
+  }
+}
+
+/**
+ * Push matching shortcuts to a tab as a Quick Tip overlay.
+ * Only sends if the quickTip feature is enabled in settings.
+ */
+export async function pushQuickTipToTab(tabId: number, url: string): Promise<void> {
+  const stored = await syncStore.get("settings");
+  const quickTip = { ...DEFAULT_SETTINGS.quickTip, ...stored?.quickTip };
+  if (!quickTip.enabled) return;
+
+  const shortcuts = await getMatchingShortcuts(url);
+  if (shortcuts.length === 0) return;
+
+  try {
+    await chrome.tabs.sendMessage(tabId, {
+      type: "UPDATE_QUICK_TIP_SHORTCUTS",
+      shortcuts,
+    });
+  } catch (err) {
+    console.debug(`[Browser Automata] pushQuickTipToTab(${String(tabId)}) failed:`, err);
   }
 }
 

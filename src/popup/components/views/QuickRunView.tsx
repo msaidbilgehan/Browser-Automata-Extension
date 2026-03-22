@@ -15,6 +15,7 @@ import type {
   QuickRunTargetType,
   EntityId,
   UrlPattern,
+  ScopeMode,
   Script,
   Flow,
   ExtractionRule,
@@ -184,8 +185,57 @@ function buildTarget(type: QuickRunTargetType, entityId: string): QuickRunTarget
   }
 }
 
-function scopeLabel(scope: UrlPattern): string {
+function scopeLabel(scope: UrlPattern, scopeMode?: ScopeMode): string {
+  if (scopeMode === "follow") return "Follows action rule";
+  if (scopeMode === "override") {
+    const base = scope.type === "global" ? "Global" : scope.value || scope.type;
+    return `${base} + action rule`;
+  }
   return scope.type === "global" ? "Global" : scope.value || scope.type;
+}
+
+const SCOPE_MODE_OPTIONS: EntityOption[] = [
+  { value: "custom", label: "Custom Domain Rule" },
+  { value: "follow", label: "Follow Action Rule" },
+  { value: "override", label: "Add Domain Rule over Action Rule" },
+];
+
+/** Load the target entity's scope for preview purposes */
+function useTargetScope(targetType: QuickRunTargetType, entityId: string): UrlPattern | null {
+  const [targetScope, setTargetScope] = useState<UrlPattern | null>(null);
+
+  useEffect(() => {
+    if (!entityId) {
+      setTargetScope(null);
+      return;
+    }
+    void (async () => {
+      switch (targetType) {
+        case "script": {
+          const scripts = (await localStore.get("scripts")) ?? {};
+          setTargetScope(scripts[entityId]?.scope ?? null);
+          break;
+        }
+        case "flow": {
+          const flows = (await localStore.get("flows")) ?? {};
+          setTargetScope(flows[entityId]?.scope ?? null);
+          break;
+        }
+        case "extraction": {
+          const rules = (await localStore.get("extractionRules")) ?? {};
+          setTargetScope(rules[entityId]?.scope ?? null);
+          break;
+        }
+        case "form_fill": {
+          const profiles = (await localStore.get("formFillProfiles")) ?? {};
+          setTargetScope(profiles[entityId]?.scope ?? null);
+          break;
+        }
+      }
+    })();
+  }, [targetType, entityId]);
+
+  return targetScope;
 }
 
 // ─── Editor Mode ────────────────────────────────────────────────────────────
@@ -211,11 +261,14 @@ function QuickRunEditor({
   const [targetType, setTargetType] = useState<QuickRunTargetType>(initial.target.type);
   const [entityId, setEntityId] = useState<string>(getTargetEntityId(initial.target));
   const entityOptions = useEntityOptions(targetType);
+  const [scopeMode, setScopeMode] = useState<ScopeMode>(initial.scopeMode ?? "custom");
+  const targetScope = useTargetScope(targetType, entityId);
 
   const handleSave = async () => {
     const updated: QuickRunAction = {
       ...draft,
       target: buildTarget(targetType, entityId),
+      scopeMode,
       meta: { ...draft.meta, updatedAt: now() },
     };
     await save(updated);
@@ -284,11 +337,37 @@ function QuickRunEditor({
         }}
       />
 
-      {/* URL Scope */}
-      <UrlPatternInput
-        value={draft.scope}
-        onChange={handleScopeChange}
+      {/* Scope Mode */}
+      <Select
+        label="Domain Rule"
+        options={SCOPE_MODE_OPTIONS}
+        value={scopeMode}
+        onChange={(e) => {
+          setScopeMode(e.target.value as ScopeMode);
+        }}
       />
+
+      {/* Target scope preview */}
+      {scopeMode !== "custom" && targetScope ? (
+        <div className="bg-bg-tertiary border-border rounded-md border px-2.5 py-1.5">
+          <span className="text-text-muted text-[10px]">Action scope: </span>
+          <span className="text-text-secondary text-[10px] font-medium">
+            {targetScope.type === "global" ? "All sites" : targetScope.value || targetScope.type}
+          </span>
+        </div>
+      ) : null}
+      {scopeMode !== "custom" && !targetScope && entityId ? (
+        <p className="text-warning text-[10px]">Target entity not found — will fall back to custom scope.</p>
+      ) : null}
+
+      {/* URL Scope — hidden when following action rule */}
+      {scopeMode !== "follow" ? (
+        <UrlPatternInput
+          {...(scopeMode === "override" ? { label: "Additional Scope" } : {})}
+          value={draft.scope}
+          onChange={handleScopeChange}
+        />
+      ) : null}
 
       {/* Enabled toggle */}
       <div className="flex items-center justify-between">
@@ -420,7 +499,7 @@ function QuickRunList({
                 </span>
               </div>
               <span className="text-text-muted text-[10px] truncate block">
-                {scopeLabel(action.scope)}
+                {scopeLabel(action.scope, action.scopeMode)}
               </span>
             </div>
 

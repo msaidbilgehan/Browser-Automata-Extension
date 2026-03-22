@@ -403,6 +403,41 @@ export function SettingsView() {
         </div>
       </section>
 
+      {/* Quick Tip */}
+      <section className="flex flex-col gap-2">
+        <h3 className="text-text-muted text-xs font-medium tracking-wider uppercase">
+          Quick Tip
+        </h3>
+        <div className="flex items-center justify-between">
+          <span className="text-text-secondary text-xs">Show Shortcuts on Page Load</span>
+          <Toggle
+            checked={settings.quickTip.enabled}
+            onChange={(checked) =>
+              void updateSettings({
+                quickTip: { ...settings.quickTip, enabled: checked },
+              })
+            }
+            size="sm"
+          />
+        </div>
+        <Input
+          label="Display Timeout (ms)"
+          type="number"
+          value={settings.quickTip.timeoutMs}
+          onChange={(e) =>
+            void updateSettings({
+              quickTip: {
+                ...settings.quickTip,
+                timeoutMs: Number(e.target.value),
+              },
+            })
+          }
+        />
+        <p className="text-text-muted text-[10px]">
+          Briefly shows active keyboard shortcuts when you navigate to a page. Set to 0 to disable auto-dismiss.
+        </p>
+      </section>
+
       {/* Export / Import */}
       <section className="flex flex-col gap-2">
         <h3 className="text-text-muted text-xs font-medium tracking-wider uppercase">

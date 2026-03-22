@@ -40,6 +40,12 @@ export interface Settings {
     barOffsetX: number;
     barOffsetY: number;
   };
+  quickTip: {
+    /** Whether the Quick Tip overlay is enabled */
+    enabled: boolean;
+    /** Auto-dismiss timeout in milliseconds */
+    timeoutMs: number;
+  };
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -74,5 +80,9 @@ export const DEFAULT_SETTINGS: Settings = {
     barPosition: "bottom-right",
     barOffsetX: 0,
     barOffsetY: 0,
+  },
+  quickTip: {
+    enabled: true,
+    timeoutMs: 3000,
   },
 };

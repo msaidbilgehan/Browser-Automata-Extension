@@ -1,4 +1,4 @@
-import type { UrlPattern } from "../types/entities";
+import type { UrlPattern, ScopeMode } from "../types/entities";
 
 /**
  * Test if a URL matches a UrlPattern.
@@ -229,5 +229,29 @@ function safeParseUrl(url: string): URL | null {
     return new URL(url);
   } catch {
     return null;
+  }
+}
+
+/**
+ * Match a URL against own scope + optional target entity scope, respecting the scope mode.
+ *
+ * - "custom": use only ownScope (current behaviour)
+ * - "follow": use the target entity's scope (fall back to ownScope if target unavailable)
+ * - "override": both ownScope AND targetScope must match (intersection)
+ */
+export function matchUrlWithScopeMode(
+  ownScope: UrlPattern,
+  targetScope: UrlPattern | null,
+  scopeMode: ScopeMode | undefined,
+  url: string,
+): boolean {
+  const mode = scopeMode ?? "custom";
+  switch (mode) {
+    case "custom":
+      return matchUrl(ownScope, url);
+    case "follow":
+      return targetScope !== null ? matchUrl(targetScope, url) : matchUrl(ownScope, url);
+    case "override":
+      return matchUrl(ownScope, url) && (targetScope !== null ? matchUrl(targetScope, url) : true);
   }
 }

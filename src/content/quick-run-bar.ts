@@ -15,6 +15,8 @@ import { DEFAULT_SETTINGS } from "@/shared/types/settings";
 const BAR_ATTR = "data-ba-quickrun";
 const BAR_BTN_ATTR = "data-ba-quickrun-btn";
 const BAR_Z_INDEX = "2147483647";
+/** Minimum distance (px) from viewport edge */
+const EDGE_MARGIN = 8;
 
 // ─── Theme (matches toast / selector-widget palette) ────────────────────────
 
@@ -40,7 +42,10 @@ const DRAG_ICON_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="non
 
 let styleEl: HTMLStyleElement | null = null;
 let barEl: HTMLDivElement | null = null;
-let currentActions: QuickRunAction[] = [];
+/** All enabled actions received from the service worker */
+let allActions: QuickRunAction[] = [];
+/** IDs of actions whose scope matches the current page URL */
+let matchingIdSet: ReadonlySet<string> = new Set();
 let barVisible = true;
 let barEnabled = true;
 let toggleShortcut: KeyCombo | null = DEFAULT_SETTINGS.quickRun.toggleShortcut;
@@ -133,8 +138,29 @@ function ensureStyle(): void {
 
 // ─── Position calculation ───────────────────────────────────────────────────
 
+/**
+ * Clamp offsets so the bar stays within the viewport.
+ * Uses the bar's actual rendered size when available, otherwise estimates.
+ */
+function clampOffsets(): void {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const barW = barEl?.offsetWidth ?? 60;
+  const barH = barEl?.offsetHeight ?? 36;
+
+  // Max offset: viewport dimension - bar size - edge margin on both sides
+  const maxX = Math.max(0, vw - barW - EDGE_MARGIN * 2);
+  const maxY = Math.max(0, vh - barH - EDGE_MARGIN * 2);
+
+  offsetX = Math.max(0, Math.min(offsetX, maxX));
+  offsetY = Math.max(0, Math.min(offsetY, maxY));
+}
+
 function applyPosition(): void {
   if (!barEl) return;
+
+  clampOffsets();
+
   const pos = barPosition;
 
   // Reset all positioning
@@ -144,14 +170,14 @@ function applyPosition(): void {
   barEl.style.removeProperty("right");
 
   if (pos.includes("top")) {
-    barEl.style.setProperty("top", `${16 + offsetY}px`, "important");
+    barEl.style.setProperty("top", `${EDGE_MARGIN + offsetY}px`, "important");
   } else {
-    barEl.style.setProperty("bottom", `${16 - offsetY}px`, "important");
+    barEl.style.setProperty("bottom", `${EDGE_MARGIN + offsetY}px`, "important");
   }
   if (pos.includes("left")) {
-    barEl.style.setProperty("left", `${16 + offsetX}px`, "important");
+    barEl.style.setProperty("left", `${EDGE_MARGIN + offsetX}px`, "important");
   } else {
-    barEl.style.setProperty("right", `${16 - offsetX}px`, "important");
+    barEl.style.setProperty("right", `${EDGE_MARGIN + offsetX}px`, "important");
   }
 }
 
@@ -160,7 +186,30 @@ function applyPosition(): void {
 function renderBar(): void {
   if (!barEl) return;
 
-  // Clear existing buttons
+  const hasDomainMatch = matchingIdSet.size > 0;
+
+  // Decide which actions to display:
+  //  - domain matches  → only matching actions (auto-shown)
+  //  - shortcut toggle → all actions regardless of domain
+  const displayActions = hasDomainMatch
+    ? allActions.filter((a) => matchingIdSet.has(a.id))
+    : allActions;
+
+  const hasActions = displayActions.length > 0;
+  // Show when: enabled, has actions, AND either domain matches (auto) or user toggled visible
+  const shouldShow = barEnabled && hasActions && (hasDomainMatch || barVisible);
+
+  if (!shouldShow) {
+    barEl.setAttribute("data-ba-hidden", "");
+    if (barEl.childElementCount > 0 && !hasActions) {
+      barEl.innerHTML = "";
+    }
+    return;
+  }
+
+  barEl.removeAttribute("data-ba-hidden");
+
+  // Rebuild children
   barEl.innerHTML = "";
 
   // Drag handle
@@ -170,25 +219,13 @@ function renderBar(): void {
   dragHandle.addEventListener("mousedown", onDragStart);
   barEl.appendChild(dragHandle);
 
-  if (currentActions.length === 0) {
-    barEl.setAttribute("data-ba-hidden", "");
-    return;
-  }
-
-  if (!barVisible) {
-    barEl.setAttribute("data-ba-hidden", "");
-    return;
-  }
-
-  barEl.removeAttribute("data-ba-hidden");
-
   // Separator after drag handle
   const sep = document.createElement("div");
   sep.setAttribute("data-ba-separator", "");
   barEl.appendChild(sep);
 
   // Action buttons
-  for (const action of currentActions) {
+  for (const action of displayActions) {
     const btn = document.createElement("button");
     btn.setAttribute(BAR_BTN_ATTR, "");
     btn.title = action.name;
@@ -234,19 +271,10 @@ function onDragMove(e: MouseEvent): void {
   const dx = e.clientX - dragStartX;
   const dy = e.clientY - dragStartY;
 
-  // For right-anchored, moving mouse right means decreasing offset
-  if (barPosition.includes("right")) {
-    offsetX = dragStartOffsetX - dx;
-  } else {
-    offsetX = dragStartOffsetX + dx;
-  }
-
-  // For bottom-anchored, moving mouse down means decreasing offset
-  if (barPosition.includes("bottom")) {
-    offsetY = dragStartOffsetY - dy;
-  } else {
-    offsetY = dragStartOffsetY + dy;
-  }
+  // Convert mouse delta to offset delta based on anchor direction.
+  // Moving mouse towards the anchored edge increases the offset (moves bar inward).
+  offsetX = dragStartOffsetX + (barPosition.includes("left") ? dx : -dx);
+  offsetY = dragStartOffsetY + (barPosition.includes("top") ? dy : -dy);
 
   applyPosition();
 }
@@ -256,16 +284,11 @@ function onDragEnd(): void {
   document.removeEventListener("mousemove", onDragMove);
   document.removeEventListener("mouseup", onDragEnd);
 
-  // Persist position to sync storage
+  // Persist position via settings message to avoid bypassing the merge logic
   try {
-    void chrome.storage.sync.get("settings", (result: Record<string, unknown>) => {
-      const stored = result["settings"] as Partial<Settings> | undefined;
-      const quickRun = { ...DEFAULT_SETTINGS.quickRun, ...stored?.quickRun };
-      quickRun.barOffsetX = offsetX;
-      quickRun.barOffsetY = offsetY;
-      void chrome.storage.sync.set({
-        settings: { ...stored, quickRun },
-      });
+    void chrome.runtime.sendMessage({
+      type: "SETTINGS_UPDATE",
+      settings: { quickRun: { barOffsetX: offsetX, barOffsetY: offsetY } },
     });
   } catch {
     // Extension context may be invalidated
@@ -276,9 +299,9 @@ function onDragEnd(): void {
 
 function onKeyDown(e: KeyboardEvent): void {
   if (!toggleShortcut) return;
+  if (!barEnabled) return;
   if (e.repeat) return;
 
-  // Check if the key combo matches the toggle shortcut
   if (
     e.key.toLowerCase() === toggleShortcut.key.toLowerCase() &&
     e.ctrlKey === toggleShortcut.ctrlKey &&
@@ -296,15 +319,19 @@ function onKeyDown(e: KeyboardEvent): void {
 // ─── Settings sync ──────────────────────────────────────────────────────────
 
 function applyQuickRunSettings(quickRun: Settings["quickRun"]): void {
+  const wasEnabled = barEnabled;
   barEnabled = quickRun.barEnabled;
   toggleShortcut = quickRun.toggleShortcut;
   barPosition = quickRun.barPosition;
   offsetX = quickRun.barOffsetX;
   offsetY = quickRun.barOffsetY;
 
-  if (!barEnabled && barEl) {
-    barEl.setAttribute("data-ba-hidden", "");
-  } else if (barEnabled && barEl) {
+  // When re-enabling, reset visibility so the bar shows immediately
+  if (!wasEnabled && barEnabled) {
+    barVisible = true;
+  }
+
+  if (barEl) {
     applyPosition();
     renderBar();
   }
@@ -356,8 +383,17 @@ export function initQuickRunBar(): void {
 /**
  * Update the list of quick run actions shown in the bar.
  * Called when UPDATE_QUICK_RUN_ACTIONS message is received.
+ *
+ * @param actions All enabled quick run actions
+ * @param matchingIds IDs of actions whose scope matches the current page URL
  */
-export function setQuickRunActions(actions: QuickRunAction[]): void {
-  currentActions = actions;
+export function setQuickRunActions(actions: QuickRunAction[], matchingIds: string[]): void {
+  allActions = actions;
+  matchingIdSet = new Set(matchingIds);
+
+  // Auto-show when domain matches; auto-hide otherwise.
+  // User can still force-show via shortcut toggle.
+  barVisible = matchingIdSet.size > 0;
+
   renderBar();
 }

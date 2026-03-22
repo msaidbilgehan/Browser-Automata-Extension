@@ -1,10 +1,25 @@
 import { localStore } from "@/shared/storage";
-import { matchUrl } from "@/shared/url-pattern/matcher";
+import { matchUrlWithScopeMode } from "@/shared/url-pattern/matcher";
+import { resolveTargetScopes } from "@/background/services/scope-resolver";
+import { pushQuickRunActionsToTab } from "@/background/services/quick-run-manager";
 import { runScriptNow } from "@/background/services/script-manager";
 import { handleFlowRunNow } from "./flow-handler";
 import { handleExtractionRunNow } from "./extraction-handler";
 import { handleFormFillRun } from "./form-fill-handler";
 import type { QuickRunAction, EntityId } from "@/shared/types/entities";
+
+/**
+ * Push updated quick run actions to all open tabs so changes take effect
+ * immediately without requiring a page refresh.
+ */
+async function broadcastQuickRunActionsToAllTabs(): Promise<void> {
+  const tabs = await chrome.tabs.query({});
+  for (const tab of tabs) {
+    if (tab.id != null && tab.url) {
+      void pushQuickRunActionsToTab(tab.id, tab.url);
+    }
+  }
+}
 
 /**
  * Save a QuickRunAction to local storage.
@@ -15,6 +30,7 @@ export async function handleQuickRunSave(action: QuickRunAction): Promise<{ ok: 
     (actions) => ({ ...actions, [action.id]: action }),
     {},
   );
+  void broadcastQuickRunActionsToAllTabs();
   return { ok: true };
 }
 
@@ -32,6 +48,7 @@ export async function handleQuickRunDelete(actionId: EntityId): Promise<{ ok: bo
     },
     {},
   );
+  void broadcastQuickRunActionsToAllTabs();
   return { ok: true };
 }
 
@@ -53,6 +70,7 @@ export async function handleQuickRunReorder(orderedIds: EntityId[]): Promise<{ o
     },
     {},
   );
+  void broadcastQuickRunActionsToAllTabs();
   return { ok: true };
 }
 
@@ -102,8 +120,12 @@ export async function handleQuickRunGetMatching(
   url: string,
 ): Promise<{ actions: QuickRunAction[] }> {
   const actions = (await localStore.get("quickRunActions")) ?? {};
-  const matching = Object.values(actions)
-    .filter((a) => a.enabled && matchUrl(a.scope, url))
+  const allEnabled = Object.values(actions).filter((a) => a.enabled);
+
+  const targetScopes = await resolveTargetScopes(allEnabled);
+
+  const matching = allEnabled
+    .filter((a) => matchUrlWithScopeMode(a.scope, targetScopes.get(a.id) ?? null, a.scopeMode, url))
     .sort((a, b) => a.order - b.order);
   return { actions: matching };
 }
