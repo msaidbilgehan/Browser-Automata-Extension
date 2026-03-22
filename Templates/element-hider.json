@@ -13,12 +13,12 @@
       "meta": {
         "createdAt": "2024-01-01T00:00:00.000Z",
         "updatedAt": "2024-01-01T00:00:00.000Z",
-        "templateVersion": "1.0.0"
+        "templateVersion": "1.1.0"
       },
       "cssRules": [
         {
           "name": "Element Hider Rule",
-          "css": "/* Replace .element-to-hide with your target selector */\n.element-to-hide {\n  display: none !important;\n}",
+          "css": "/* Replace .element-to-hide with your target selector(s) */\n/* Comma-separate multiple selectors: .ad-banner, .popup-overlay */\n.element-to-hide {\n  display: none !important;\n  visibility: hidden !important;\n  height: 0 !important;\n  overflow: hidden !important;\n}",
           "scope": { "type": "global", "value": "*" },
           "enabled": true,
           "injectAt": "document_start",

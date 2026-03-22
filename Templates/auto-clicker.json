@@ -13,13 +13,13 @@
       "meta": {
         "createdAt": "2024-01-01T00:00:00.000Z",
         "updatedAt": "2024-01-01T00:00:00.000Z",
-        "templateVersion": "1.0.0"
+        "templateVersion": "1.1.0"
       },
       "scripts": [
         {
           "name": "Auto-Clicker",
-          "description": "Clicks the configured selector on an interval. Edit SELECTOR and INTERVAL_MS to customize.",
-          "code": "(function() {\n  const SELECTOR = \".target-button\"; // Change to your target selector\n  const INTERVAL_MS = 3000; // Change interval in milliseconds\n\n  const intervalId = setInterval(function() {\n    const el = document.querySelector(SELECTOR);\n    if (el instanceof HTMLElement) {\n      el.click();\n    }\n  }, INTERVAL_MS);\n\n  // Store interval ID on window so it can be cleared later\n  window.__browserAutomataAutoClicker = intervalId;\n})();",
+          "description": "Clicks the configured selector on an interval. Run again to stop. Edit SELECTOR and INTERVAL_MS to customize.",
+          "code": "(function() {\n  const SELECTOR = \".target-button\"; // Change to your target selector\n  const INTERVAL_MS = 3000; // Change interval in milliseconds\n\n  // Stop any previously running auto-clicker\n  if (window.__browserAutomataAutoClicker) {\n    clearInterval(window.__browserAutomataAutoClicker);\n    window.__browserAutomataAutoClicker = undefined;\n    console.log('[Auto-Clicker] Stopped previous instance.');\n    return;\n  }\n\n  const intervalId = setInterval(function() {\n    const el = document.querySelector(SELECTOR);\n    if (el instanceof HTMLElement) {\n      el.click();\n    }\n  }, INTERVAL_MS);\n\n  window.__browserAutomataAutoClicker = intervalId;\n  console.log('[Auto-Clicker] Started — clicking \"' + SELECTOR + '\" every ' + INTERVAL_MS + 'ms. Run again to stop.');\n})();",
           "trigger": "manual",
           "scope": { "type": "global", "value": "*" },
           "executionWorld": "MAIN",

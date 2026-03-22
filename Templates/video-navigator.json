@@ -7,13 +7,13 @@
     {
       "id": "tpl-video-navigator",
       "name": "Video Navigator",
-      "description": "Binds N and P keys to navigate to next/previous video on YouTube and Vimeo.",
+      "description": "Binds N and P keys to navigate to next/previous video on YouTube and Vimeo. Supports player buttons and playlist navigation.",
       "category": "navigation",
       "tags": ["video", "youtube", "vimeo", "shortcuts", "navigation"],
       "meta": {
         "createdAt": "2024-01-01T00:00:00.000Z",
         "updatedAt": "2024-01-01T00:00:00.000Z",
-        "templateVersion": "1.0.0"
+        "templateVersion": "1.1.0"
       },
       "shortcuts": [
         {
@@ -27,7 +27,7 @@
           },
           "action": {
             "type": "inline_script",
-            "code": "(function() {\n  const ytNext = document.querySelector(\".ytp-next-button, a.ytp-next-button\");\n  const vimeoNext = document.querySelector(\"[data-action=\\\"next\\\"]\");\n  const target = ytNext || vimeoNext;\n  if (target instanceof HTMLElement) target.click();\n})();"
+            "code": "(function() {\n  const target = document.querySelector('.ytp-next-button, a.ytp-next-button, [data-action=\"next\"], .vp-next');\n  if (target instanceof HTMLElement) { target.click(); return; }\n  const playlist = document.querySelector('ytd-playlist-panel-renderer a#wc-endpoint:not([aria-selected=\"true\"]) + a#wc-endpoint');\n  if (playlist instanceof HTMLElement) playlist.click();\n})();"
           },
           "scope": {
             "type": "glob",
@@ -47,7 +47,7 @@
           },
           "action": {
             "type": "inline_script",
-            "code": "(function() {\n  const ytPrev = document.querySelector(\".ytp-prev-button\");\n  const vimeoPrev = document.querySelector(\"[data-action=\\\"previous\\\"]\");\n  const target = ytPrev || vimeoPrev;\n  if (target instanceof HTMLElement) target.click();\n})();"
+            "code": "(function() {\n  const target = document.querySelector('.ytp-prev-button, [data-action=\"previous\"], .vp-previous');\n  if (target instanceof HTMLElement) target.click();\n})();"
           },
           "scope": {
             "type": "glob",

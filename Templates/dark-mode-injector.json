@@ -7,18 +7,18 @@
     {
       "id": "tpl-dark-mode-injector",
       "name": "Dark Mode Injector",
-      "description": "Inverts page colors for a dark mode effect. Images are un-inverted to preserve their appearance.",
+      "description": "Inverts page colors for a dark mode effect. Images, videos, iframes, and embedded media are un-inverted to preserve their appearance.",
       "category": "accessibility",
       "tags": ["dark-mode", "accessibility", "css", "invert", "theme"],
       "meta": {
         "createdAt": "2024-01-01T00:00:00.000Z",
         "updatedAt": "2024-01-01T00:00:00.000Z",
-        "templateVersion": "1.0.0"
+        "templateVersion": "1.1.0"
       },
       "cssRules": [
         {
           "name": "Dark Mode Inversion",
-          "css": "html {\n  filter: invert(1) hue-rotate(180deg);\n}\n\nimg, video, picture, canvas, svg, [style*=\"background-image\"] {\n  filter: invert(1) hue-rotate(180deg);\n}",
+          "css": "html {\n  filter: invert(1) hue-rotate(180deg);\n  background-color: #fff;\n}\n\nimg, video, picture, canvas, svg, iframe, embed, object,\n[style*=\"background-image\"] {\n  filter: invert(1) hue-rotate(180deg);\n}",
           "scope": { "type": "global", "value": "*" },
           "enabled": true,
           "injectAt": "document_start",
