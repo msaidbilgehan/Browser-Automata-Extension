@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { Script, EntityId } from "@/shared/types/entities";
+import type { ScriptRunResult } from "@/shared/types/script-run";
 import { sendToBackground } from "@/shared/messaging";
 import { localStore, onStorageChange } from "@/shared/storage";
 
@@ -12,7 +13,7 @@ interface ScriptsState {
   save: (script: Script) => Promise<void>;
   remove: (id: EntityId) => Promise<void>;
   toggle: (id: EntityId, enabled: boolean) => Promise<void>;
-  runNow: (id: EntityId) => Promise<{ ok: boolean; error?: string }>;
+  runNow: (id: EntityId) => Promise<ScriptRunResult>;
   setEditing: (id: EntityId | null) => void;
 }
 

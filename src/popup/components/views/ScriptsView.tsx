@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { FileCode, Plus, ArrowLeft, Play, Save, Trash2, Undo2, Copy } from "lucide-react";
+import { FileCode, Plus, ArrowLeft, Play, Save, Trash2, Undo2, Copy, Loader2 } from "lucide-react";
 import { SectionExportImport } from "../ui/SectionExportImport";
 import type { Script, UrlPattern } from "@/shared/types/entities";
+import type { ScriptRunResult } from "@/shared/types/script-run";
 import { generateId, now } from "@/shared/utils";
 import { useScriptsStore } from "../../stores/scripts-store";
 import { useEditorDraft } from "../../hooks/use-editor-draft";
@@ -13,6 +14,7 @@ import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
 import { CodeEditor } from "../editor/CodeEditor";
 import { UrlPatternInput } from "../editor/UrlPatternInput";
+import { ExecutionOutput } from "../ui/ExecutionOutput";
 import { jsEditorExtensions } from "@/lib/codemirror/setup";
 
 function createNewScript(): Script {
@@ -72,6 +74,9 @@ function ScriptEditor({
     saved: isNew ? null : initial,
   });
 
+  const [running, setRunning] = useState(false);
+  const [lastResult, setLastResult] = useState<ScriptRunResult | null>(null);
+
   const extensions = useMemo(() => jsEditorExtensions(), []);
 
   const patch = useCallback(<K extends keyof Script>(key: K, value: Script[K]) => {
@@ -95,7 +100,16 @@ function ScriptEditor({
   };
 
   const handleRun = async () => {
-    await runNow(draft.id);
+    setRunning(true);
+    setLastResult(null);
+    try {
+      const result = await runNow(draft.id);
+      setLastResult(result);
+    } catch {
+      setLastResult({ ok: false, error: "Failed to communicate with service worker", consoleLogs: [], durationMs: 0 });
+    } finally {
+      setRunning(false);
+    }
   };
 
   const handleDiscard = async () => {
@@ -132,9 +146,9 @@ function ScriptEditor({
           </Button>
         )}
         {!isNew && (
-          <Button variant="ghost" onClick={() => void handleRun()} className="gap-1">
-            <Play size={12} />
-            Run
+          <Button variant="ghost" onClick={() => void handleRun()} disabled={running} className="gap-1">
+            {running ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
+            {running ? "Running…" : "Run"}
           </Button>
         )}
         <Button variant="primary" onClick={() => void handleSave()} className="gap-1">
@@ -142,6 +156,11 @@ function ScriptEditor({
           Save
         </Button>
       </div>
+
+      {/* Execution output */}
+      {lastResult && (
+        <ExecutionOutput result={lastResult} onDismiss={() => { setLastResult(null); }} />
+      )}
 
       {/* Form */}
       <div className="flex flex-col gap-2 overflow-y-auto">
@@ -235,6 +254,8 @@ export function ScriptsView() {
   const { scripts, loading, editingId, load, toggle, runNow, setEditing } = useScriptsStore();
   const [newScript, setNewScript] = useState<Script | null>(null);
   const [draftIds, setDraftIds] = useState<Set<string>>(new Set());
+  const [listRunResult, setListRunResult] = useState<{ scriptId: string; result: ScriptRunResult } | null>(null);
+  const [listRunning, setListRunning] = useState<string | null>(null);
 
   useEffect(() => {
     void load();
@@ -316,78 +337,95 @@ export function ScriptsView() {
       ) : (
         <div className="flex flex-col gap-1.5">
           {scriptList.map((script) => (
-            <Card
-              key={script.id}
-              onClick={() => {
-                setEditing(script.id);
-              }}
-            >
-              <div className="flex items-center gap-2">
-                <span
-                  className={`h-2 w-2 shrink-0 rounded-full ${
-                    script.enabled ? "bg-active" : "bg-text-muted"
-                  }`}
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-text-primary truncate text-xs font-medium">
-                      {script.name || "Untitled"}
-                    </p>
-                    {draftIds.has(script.id) && (
-                      <span className="bg-warning/20 text-warning shrink-0 rounded px-1 py-0.5 text-[9px] font-medium">
-                        Draft
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-text-muted text-[10px]">{scopeLabel(script.scope)}</span>
-                    <span className="text-text-muted text-[10px]">{script.trigger}</span>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const ts = now();
-                    setNewScript({
-                      ...script,
-                      id: generateId(),
-                      name: `${script.name || "Untitled"} (Copy)`,
-                      meta: { ...script.meta, createdAt: ts, updatedAt: ts },
-                    });
-                  }}
-                  className="text-text-muted hover:bg-bg-tertiary hover:text-text-primary rounded p-1 transition-colors"
-                  aria-label="Duplicate script"
-                >
-                  <Copy size={12} />
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void runNow(script.id);
-                  }}
-                  className="text-text-muted hover:bg-bg-tertiary hover:text-active rounded p-1 transition-colors"
-                  aria-label="Run script"
-                >
-                  <Play size={12} />
-                </button>
-                <div
-                  onClick={(e) => {
-                    e.stopPropagation();
-                  }}
-                  onKeyDown={(e) => {
-                    e.stopPropagation();
-                  }}
-                >
-                  <Toggle
-                    checked={script.enabled}
-                    onChange={(enabled) => void toggle(script.id, enabled)}
-                    size="sm"
+            <div key={script.id} className="flex flex-col gap-1">
+              <Card
+                onClick={() => {
+                  setEditing(script.id);
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`h-2 w-2 shrink-0 rounded-full ${
+                      script.enabled ? "bg-active" : "bg-text-muted"
+                    }`}
                   />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-text-primary truncate text-xs font-medium">
+                        {script.name || "Untitled"}
+                      </p>
+                      {draftIds.has(script.id) && (
+                        <span className="bg-warning/20 text-warning shrink-0 rounded px-1 py-0.5 text-[9px] font-medium">
+                          Draft
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-text-muted text-[10px]">{scopeLabel(script.scope)}</span>
+                      <span className="text-text-muted text-[10px]">{script.trigger}</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const ts = now();
+                      setNewScript({
+                        ...script,
+                        id: generateId(),
+                        name: `${script.name || "Untitled"} (Copy)`,
+                        meta: { ...script.meta, createdAt: ts, updatedAt: ts },
+                      });
+                    }}
+                    className="text-text-muted hover:bg-bg-tertiary hover:text-text-primary rounded p-1 transition-colors"
+                    aria-label="Duplicate script"
+                  >
+                    <Copy size={12} />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={listRunning === script.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setListRunning(script.id);
+                      setListRunResult(null);
+                      void runNow(script.id).then((result) => {
+                        setListRunResult({ scriptId: script.id, result });
+                        setListRunning(null);
+                      }).catch(() => { setListRunning(null); });
+                    }}
+                    className="text-text-muted hover:bg-bg-tertiary hover:text-active rounded p-1 transition-colors disabled:opacity-50"
+                    aria-label="Run script"
+                  >
+                    {listRunning === script.id ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <Play size={12} />
+                    )}
+                  </button>
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                    }}
+                    onKeyDown={(e) => {
+                      e.stopPropagation();
+                    }}
+                  >
+                    <Toggle
+                      checked={script.enabled}
+                      onChange={(enabled) => void toggle(script.id, enabled)}
+                      size="sm"
+                    />
+                  </div>
                 </div>
-              </div>
-            </Card>
+              </Card>
+              {listRunResult?.scriptId === script.id && (
+                <ExecutionOutput
+                  result={listRunResult.result}
+                  onDismiss={() => { setListRunResult(null); }}
+                />
+              )}
+            </div>
           ))}
         </div>
       )}

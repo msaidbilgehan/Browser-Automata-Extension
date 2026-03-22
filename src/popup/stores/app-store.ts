@@ -21,9 +21,11 @@ function isTabVisibleInMode(tab: TabId, mode: "basic" | "advanced"): boolean {
 }
 
 const DEFAULT_TAB_FOR_MODE: Record<"basic" | "advanced", TabId> = {
-  basic: "shortcuts",
+  basic: "templates",
   advanced: "scripts",
 };
+
+const SESSION_TAB_KEY = "_activeTab";
 
 function mergeWithDefaults(stored: Partial<Settings>): Settings {
   return {
@@ -98,6 +100,7 @@ export const useAppStore = create<AppState>((set, get) => {
 
     setActiveTab: (tab) => {
       set({ activeTab: tab });
+      void chrome.storage.session.set({ [SESSION_TAB_KEY]: tab });
     },
 
     initialize: async () => {
@@ -116,10 +119,20 @@ export const useAppStore = create<AppState>((set, get) => {
           // Cache for subsequent rapid re-opens
           await chrome.storage.session.set({ [SESSION_STATE_KEY]: { ts: Date.now(), state } });
         }
+        // Restore persisted tab if it's visible in the current mode
+        const settings = mergeWithDefaults(state.settings);
+        const tabCache = await chrome.storage.session.get(SESSION_TAB_KEY);
+        const savedTab = tabCache[SESSION_TAB_KEY] as TabId | undefined;
+        const viewMode = settings.ui.viewMode;
+        const activeTab = savedTab && isTabVisibleInMode(savedTab, viewMode)
+          ? savedTab
+          : DEFAULT_TAB_FOR_MODE[viewMode];
+
         set({
-          settings: mergeWithDefaults(state.settings),
+          settings,
           counts: state.counts,
           activeProfileId: state.activeProfileId,
+          activeTab,
           initialized: true,
           loading: false,
         });

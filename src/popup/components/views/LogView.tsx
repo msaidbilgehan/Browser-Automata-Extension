@@ -192,8 +192,30 @@ export function LogView() {
   );
 }
 
+const LOG_LEVEL_STYLES: Record<string, string> = {
+  log: "text-text-secondary",
+  info: "text-active",
+  warn: "text-warning",
+  error: "text-error",
+};
+
+const LOG_LEVEL_LABELS: Record<string, string> = {
+  log: "LOG",
+  info: "INF",
+  warn: "WRN",
+  error: "ERR",
+};
+
 function LogEntry({ entry, onToggle }: { entry: ActivityLogEntry; onToggle?: () => void }) {
   const [expanded, setExpanded] = useState(false);
+
+  const consoleLogs = entry.details?.["consoleLogs"] as
+    | Array<{ level: string; text: string; timestamp: number }>
+    | undefined;
+  const returnValue = entry.details?.["returnValue"] as string | undefined;
+  const durationMs = entry.details?.["durationMs"] as number | undefined;
+
+  const hasDetails = entry.error || (consoleLogs && consoleLogs.length > 0) || returnValue !== undefined;
 
   return (
     <div
@@ -210,16 +232,57 @@ function LogEntry({ entry, onToggle }: { entry: ActivityLogEntry; onToggle?: () 
         >
           {STATUS_ICONS[entry.status] ?? "\u25CB"} {entry.domain ?? "system"}
         </span>
-        <span className="text-text-muted text-[10px]">{formatTime(entry.timestamp)}</span>
+        <div className="flex items-center gap-1.5">
+          {durationMs !== undefined && (
+            <span className="text-text-muted text-[9px]">{String(durationMs)}ms</span>
+          )}
+          {consoleLogs && consoleLogs.length > 0 && (
+            <span className="text-text-muted text-[9px]">{String(consoleLogs.length)} log{consoleLogs.length > 1 ? "s" : ""}</span>
+          )}
+          <span className="text-text-muted text-[10px]">{formatTime(entry.timestamp)}</span>
+        </div>
       </div>
       <p className="text-text-secondary truncate text-[11px]">{entry.message}</p>
-      {expanded && entry.error ? (
-        <div className="bg-bg-primary mt-1 rounded p-1.5">
-          <p className="text-error font-mono text-[10px]">{entry.error.message}</p>
-          {entry.error.stack ? (
-            <pre className="text-text-muted mt-1 max-h-20 overflow-auto text-[9px]">
-              {entry.error.stack}
-            </pre>
+
+      {expanded && hasDetails ? (
+        <div className="bg-bg-primary mt-1 rounded p-1.5 flex flex-col gap-1">
+          {/* Console logs */}
+          {consoleLogs && consoleLogs.length > 0 && (
+            <div className="flex flex-col">
+              {consoleLogs.map((log, i) => (
+                <div
+                  key={i}
+                  className={`font-mono text-[10px] leading-relaxed flex gap-1.5 ${LOG_LEVEL_STYLES[log.level] ?? "text-text-secondary"}`}
+                >
+                  <span className="shrink-0 opacity-60 font-semibold w-6">
+                    {LOG_LEVEL_LABELS[log.level] ?? "LOG"}
+                  </span>
+                  <span className="whitespace-pre-wrap break-all">{log.text}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Return value */}
+          {returnValue !== undefined && (
+            <div>
+              <span className="text-text-muted text-[9px]">Return:</span>
+              <pre className="text-text-primary font-mono text-[10px] whitespace-pre-wrap break-all">
+                {returnValue}
+              </pre>
+            </div>
+          )}
+
+          {/* Error */}
+          {entry.error ? (
+            <div>
+              <p className="text-error font-mono text-[10px]">{entry.error.message}</p>
+              {entry.error.stack ? (
+                <pre className="text-text-muted mt-1 max-h-20 overflow-auto text-[9px]">
+                  {entry.error.stack}
+                </pre>
+              ) : null}
+            </div>
           ) : null}
         </div>
       ) : null}

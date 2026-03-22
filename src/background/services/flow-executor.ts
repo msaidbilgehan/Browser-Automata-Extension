@@ -621,7 +621,7 @@ async function executeScriptNode(scriptId: EntityId, tabId: number): Promise<voi
     throw new Error(`Script ${scriptId} not found`);
   }
   const result = await executeScript(tabId, script);
-  if (!result.success) {
+  if (!result.ok) {
     throw new Error(result.error ?? "Script execution failed");
   }
 }

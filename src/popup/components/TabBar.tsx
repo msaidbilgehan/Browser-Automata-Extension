@@ -4,7 +4,7 @@ import {
   GitBranch,
   ScrollText,
   MoreHorizontal,
-  Pickaxe,
+  Package,
 } from "lucide-react";
 import { useAppStore } from "../stores/app-store";
 import type { TabId } from "../stores/app-store";
@@ -19,14 +19,14 @@ interface TabItem {
 /* ── Tab definitions per view mode ── */
 
 const BASIC_PRIMARY: TabItem[] = [
+  { id: "templates", label: "Templates", icon: <Package size={16} /> },
   { id: "shortcuts", label: "Keys", icon: <Keyboard size={16} /> },
   { id: "flows", label: "Flows", icon: <GitBranch size={16} /> },
-  { id: "extraction", label: "Extract", icon: <Pickaxe size={16} /> },
   { id: "log", label: "Log", icon: <ScrollText size={16} /> },
 ];
 
 const BASIC_MORE: TabItem[] = [
-  { id: "templates", label: "Templates", icon: null },
+  { id: "extraction", label: "Extract", icon: null },
   { id: "profiles", label: "Profiles", icon: null },
   { id: "import-export", label: "Import/Export", icon: null },
   { id: "settings", label: "Settings", icon: null },
