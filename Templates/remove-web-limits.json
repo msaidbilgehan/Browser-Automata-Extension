@@ -1,0 +1,45 @@
+{
+  "_format": "browser-automata-export",
+  "_schemaVersion": 1,
+  "_exportedAt": "2026-03-22T00:00:00.000Z",
+  "_includesSecrets": false,
+  "templates": [
+    {
+      "id": "tpl-remove-web-limits",
+      "name": "Remove Web Limits",
+      "description": "Removes website restrictions that block copying, cutting, selecting text, and right-click context menus. Restores normal browser behavior on pages that disable these actions.",
+      "category": "accessibility",
+      "tags": ["copy", "paste", "select", "right-click", "context-menu", "restrictions", "unlock"],
+      "author": "Browser Automata",
+      "meta": {
+        "createdAt": "2026-03-22T00:00:00.000Z",
+        "updatedAt": "2026-03-22T00:00:00.000Z",
+        "templateVersion": "1.0.0"
+      },
+      "scripts": [
+        {
+          "name": "Remove Web Limits Script",
+          "description": "Intercepts and neutralizes event listeners that prevent copy, cut, paste, select, and right-click. Removes inline event handlers and CSS restrictions.",
+          "code": "(function() {\n  'use strict';\n\n  var BLOCKED_EVENTS = [\n    'copy', 'cut', 'paste',\n    'contextmenu',\n    'selectstart', 'select',\n    'dragstart', 'drag',\n    'mousedown', 'mouseup'\n  ];\n\n  // Override addEventListener to prevent blocking\n  var origAdd = EventTarget.prototype.addEventListener;\n  EventTarget.prototype.addEventListener = function(type, listener, options) {\n    if (BLOCKED_EVENTS.indexOf(type) !== -1) {\n      // Wrap the listener to prevent preventDefault\n      var wrappedListener = function(e) {\n        var origPrevent = e.preventDefault;\n        e.preventDefault = function() {};\n        try { listener.call(this, e); } catch (_) {}\n        e.preventDefault = origPrevent;\n      };\n      return origAdd.call(this, type, wrappedListener, options);\n    }\n    return origAdd.call(this, type, listener, options);\n  };\n\n  // Remove inline event handlers from all elements\n  function removeInlineHandlers(root) {\n    var attrs = [\n      'oncopy', 'oncut', 'onpaste',\n      'oncontextmenu',\n      'onselectstart', 'onselect',\n      'ondragstart', 'ondrag',\n      'onmousedown', 'onmouseup'\n    ];\n    var all = root.querySelectorAll('*');\n    all.forEach(function(el) {\n      attrs.forEach(function(attr) {\n        if (el.hasAttribute(attr)) el.removeAttribute(attr);\n      });\n    });\n    // Also clean the root element (html/body)\n    attrs.forEach(function(attr) {\n      if (root.hasAttribute && root.hasAttribute(attr)) root.removeAttribute(attr);\n    });\n  }\n\n  // Remove document-level handlers\n  BLOCKED_EVENTS.forEach(function(evt) {\n    document['on' + evt] = null;\n  });\n\n  removeInlineHandlers(document.documentElement);\n  removeInlineHandlers(document.body);\n\n  // Re-enable text selection via event listeners\n  document.addEventListener('selectstart', function(e) { e.stopPropagation(); }, true);\n  document.addEventListener('contextmenu', function(e) { e.stopPropagation(); }, true);\n  document.addEventListener('copy', function(e) { e.stopPropagation(); }, true);\n  document.addEventListener('cut', function(e) { e.stopPropagation(); }, true);\n  document.addEventListener('paste', function(e) { e.stopPropagation(); }, true);\n  document.addEventListener('dragstart', function(e) { e.stopPropagation(); }, true);\n\n  // Observe for dynamically added elements\n  var observer = new MutationObserver(function(mutations) {\n    mutations.forEach(function(m) {\n      m.addedNodes.forEach(function(node) {\n        if (node.nodeType === 1) removeInlineHandlers(node);\n      });\n    });\n  });\n  observer.observe(document.body, { childList: true, subtree: true });\n\n  console.log('[Remove Web Limits] Script active — copy, paste, select, and right-click restored.');\n})();",
+          "trigger": "page_load",
+          "scope": { "type": "global", "value": "*" },
+          "executionWorld": "MAIN",
+          "runAt": "document_start",
+          "enabled": true,
+          "priority": 10,
+          "profileId": null
+        }
+      ],
+      "cssRules": [
+        {
+          "name": "Remove Web Limits CSS",
+          "css": "/* Re-enable text selection and pointer events */\n*, *::before, *::after {\n  -webkit-user-select: text !important;\n  -moz-user-select: text !important;\n  -ms-user-select: text !important;\n  user-select: text !important;\n  -webkit-touch-callout: default !important;\n}\n\n/* Remove no-select classes commonly used */\n.noselect, .no-select, .unselectable,\n[unselectable=\"on\"] {\n  -webkit-user-select: text !important;\n  user-select: text !important;\n}\n\n/* Restore cursor */\nbody, body * {\n  cursor: auto !important;\n}",
+          "scope": { "type": "global", "value": "*" },
+          "enabled": true,
+          "injectAt": "document_start",
+          "profileId": null
+        }
+      ]
+    }
+  ]
+}

@@ -28,5 +28,53 @@
     "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/auto-clicker.json",
     "contentHash": "225f4a173dc62007e8e50f839d302d5d3f237d77183fb38d132793d76ac0d6c9",
     "updatedAt": "2026-03-22T00:00:00.000Z"
+  },
+  "auto-skip-youtube-ads": {
+    "version": ">=0.2.1",
+    "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/auto-skip-youtube-ads.json",
+    "contentHash": "4e9a0334cfbb4aed614468c0d6c5137231a048e05b6f494369f1fed623375d9c",
+    "updatedAt": "2026-03-22T00:00:00.000Z"
+  },
+  "github-directory-download": {
+    "version": ">=0.2.1",
+    "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/github-directory-download.json",
+    "contentHash": "cf510cefdadd9cacf6a3cef1396d0a304515b7fb82e8eb6eaeff063c752c6d5a",
+    "updatedAt": "2026-03-22T00:00:00.000Z"
+  },
+  "twitter-x-media-downloader": {
+    "version": ">=0.2.1",
+    "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/twitter-x-media-downloader.json",
+    "contentHash": "0beefe883d021a85c035c6cdc817354ccffcdb8c727e356d233920f9e3ac5c0c",
+    "updatedAt": "2026-03-22T00:00:00.000Z"
+  },
+  "remove-web-limits": {
+    "version": ">=0.2.1",
+    "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/remove-web-limits.json",
+    "contentHash": "b452d5256fcf0f4f61da2d68c67fdfe7ec18b011b95e55fb41c637d23b33bb96",
+    "updatedAt": "2026-03-22T00:00:00.000Z"
+  },
+  "instagram-download-button": {
+    "version": ">=0.2.1",
+    "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/instagram-download-button.json",
+    "contentHash": "f4d929e237e98b1942509fa29ca32ffbf6ffd010786fe5f00b0a0813c56a79e6",
+    "updatedAt": "2026-03-22T00:00:00.000Z"
+  },
+  "open-movie-search": {
+    "version": ">=0.2.1",
+    "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/open-movie-search.json",
+    "contentHash": "fa63dc0fbaf81cfed35172aa89da1b8476a9626acc55798452482e9c4d02a518",
+    "updatedAt": "2026-03-22T00:00:00.000Z"
+  },
+  "change-font": {
+    "version": ">=0.2.1",
+    "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/change-font.json",
+    "contentHash": "1c3215110a47928e83ed0c64a8135a5c559a6c7cfb021bf2002382ffdf76bdb4",
+    "updatedAt": "2026-03-22T00:00:00.000Z"
+  },
+  "currency-converter": {
+    "version": ">=0.2.1",
+    "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/currency-converter.json",
+    "contentHash": "9e8742c61450247f509573d8f47d3ed7f7b973e792e3d05c01106f62df89a6a9",
+    "updatedAt": "2026-03-22T00:00:00.000Z"
   }
 }

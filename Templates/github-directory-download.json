@@ -1,0 +1,35 @@
+{
+  "_format": "browser-automata-export",
+  "_schemaVersion": 1,
+  "_exportedAt": "2026-03-22T00:00:00.000Z",
+  "_includesSecrets": false,
+  "templates": [
+    {
+      "id": "tpl-github-directory-download",
+      "name": "GitHub Directory Download",
+      "description": "Adds a download button to GitHub directory views, allowing you to download individual directories as ZIP files without cloning the entire repository. Uses the GitHub API to fetch and package directory contents.",
+      "category": "productivity",
+      "tags": ["github", "download", "directory", "zip", "repository", "git"],
+      "author": "Browser Automata",
+      "meta": {
+        "createdAt": "2026-03-22T00:00:00.000Z",
+        "updatedAt": "2026-03-22T00:00:00.000Z",
+        "templateVersion": "1.0.0"
+      },
+      "scripts": [
+        {
+          "name": "GitHub Directory Download",
+          "description": "Injects a download button into GitHub directory listings. Fetches directory contents via the GitHub API and packages them into a ZIP file using JSZip loaded from CDN.",
+          "code": "(function() {\n  'use strict';\n\n  if (window.__ghDirDownloadActive) return;\n  window.__ghDirDownloadActive = true;\n\n  const BUTTON_ID = 'ba-gh-dir-download';\n  const JSZIP_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';\n\n  function parseRepoPath() {\n    const match = location.pathname.match(/^\\/([^/]+)\\/([^/]+)\\/tree\\/([^/]+)\\/(.+)/);\n    if (!match) return null;\n    return { owner: match[1], repo: match[2], branch: match[3], path: match[4] };\n  }\n\n  function loadJSZip() {\n    return new Promise(function(resolve, reject) {\n      if (window.JSZip) { resolve(window.JSZip); return; }\n      var s = document.createElement('script');\n      s.src = JSZIP_CDN;\n      s.onload = function() { resolve(window.JSZip); };\n      s.onerror = function() { reject(new Error('Failed to load JSZip')); };\n      document.head.appendChild(s);\n    });\n  }\n\n  async function fetchTree(owner, repo, branch, path) {\n    var apiUrl = 'https://api.github.com/repos/' + owner + '/' + repo + '/git/trees/' + branch + '?recursive=1';\n    var resp = await fetch(apiUrl);\n    if (!resp.ok) throw new Error('GitHub API error: ' + resp.status);\n    var data = await resp.json();\n    return data.tree.filter(function(item) {\n      return item.path.startsWith(path + '/') || item.path === path;\n    });\n  }\n\n  async function fetchBlob(url) {\n    var resp = await fetch(url);\n    if (!resp.ok) throw new Error('Failed to fetch: ' + url);\n    var data = await resp.json();\n    return Uint8Array.from(atob(data.content), function(c) { return c.charCodeAt(0); });\n  }\n\n  async function downloadDirectory(info, button) {\n    try {\n      button.textContent = 'Loading JSZip...';\n      button.disabled = true;\n      var JSZip = await loadJSZip();\n\n      button.textContent = 'Fetching file tree...';\n      var tree = await fetchTree(info.owner, info.repo, info.branch, info.path);\n      var blobs = tree.filter(function(item) { return item.type === 'blob'; });\n\n      if (blobs.length === 0) {\n        button.textContent = 'No files found';\n        setTimeout(function() { button.textContent = 'Download Directory'; button.disabled = false; }, 2000);\n        return;\n      }\n\n      var zip = new JSZip();\n      var dirName = info.path.split('/').pop() || info.repo;\n\n      for (var i = 0; i < blobs.length; i++) {\n        button.textContent = 'Downloading ' + (i + 1) + '/' + blobs.length + '...';\n        var relativePath = blobs[i].path.substring(info.path.length + 1);\n        var content = await fetchBlob(blobs[i].url);\n        zip.file(relativePath, content);\n      }\n\n      button.textContent = 'Creating ZIP...';\n      var blob = await zip.generateAsync({ type: 'blob' });\n      var a = document.createElement('a');\n      a.href = URL.createObjectURL(blob);\n      a.download = dirName + '.zip';\n      a.click();\n      URL.revokeObjectURL(a.href);\n\n      button.textContent = 'Downloaded!';\n      setTimeout(function() { button.textContent = 'Download Directory'; button.disabled = false; }, 2000);\n    } catch (err) {\n      console.error('[GH Dir Download]', err);\n      button.textContent = 'Error: ' + err.message;\n      setTimeout(function() { button.textContent = 'Download Directory'; button.disabled = false; }, 3000);\n    }\n  }\n\n  function injectButton() {\n    if (document.getElementById(BUTTON_ID)) return;\n    var info = parseRepoPath();\n    if (!info) return;\n\n    var target = document.querySelector('[class*=\"Box-sc\"] [class*=\"TreeView\"]') ||\n                 document.querySelector('div[aria-labelledby*=\"folders-and-files\"]') ||\n                 document.querySelector('.Box .Details');\n    if (!target) return;\n\n    var wrapper = target.closest('[class*=\"Box-sc\"]') || target.parentElement;\n    if (!wrapper) return;\n\n    var btn = document.createElement('button');\n    btn.id = BUTTON_ID;\n    btn.textContent = 'Download Directory';\n    btn.style.cssText = 'margin:8px 16px;padding:5px 16px;font-size:14px;font-weight:500;line-height:20px;cursor:pointer;border:1px solid rgba(27,31,36,0.15);border-radius:6px;color:#fff;background-color:#2ea44f;font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,Arial,sans-serif;';\n    btn.addEventListener('mouseenter', function() { btn.style.backgroundColor = '#2c974b'; });\n    btn.addEventListener('mouseleave', function() { btn.style.backgroundColor = '#2ea44f'; });\n    btn.addEventListener('click', function() { downloadDirectory(info, btn); });\n\n    wrapper.insertBefore(btn, wrapper.firstChild);\n  }\n\n  injectButton();\n\n  var observer = new MutationObserver(function() {\n    if (!document.getElementById(BUTTON_ID)) injectButton();\n  });\n  observer.observe(document.body, { childList: true, subtree: true });\n\n  console.log('[GitHub Directory Download] Active — look for the download button on directory pages.');\n})();",
+          "trigger": "page_load",
+          "scope": { "type": "glob", "value": "*://*.github.com/*/tree/*" },
+          "executionWorld": "MAIN",
+          "runAt": "document_idle",
+          "enabled": true,
+          "priority": 0,
+          "profileId": null
+        }
+      ]
+    }
+  ]
+}

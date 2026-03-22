@@ -5,7 +5,6 @@ import type {
   RemoteTemplate,
   TemplateCatalogResponse,
 } from "@/shared/types/template-registry";
-import { BUNDLED_TEMPLATES } from "@/data/templates/index";
 
 const REGISTRY_URL =
   "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/templates.json";
@@ -74,7 +73,6 @@ async function fetchTemplateFile(url: string): Promise<Template[]> {
 
 /**
  * Fetch the full template catalog: registry + all individual templates.
- * Falls back to bundled templates on network failure.
  */
 export async function fetchTemplateCatalog(): Promise<TemplateCatalogResponse> {
   const appVersion = getAppVersion();
@@ -114,20 +112,12 @@ export async function fetchTemplateCatalog(): Promise<TemplateCatalogResponse> {
 
     return { ok: true, templates: results };
   } catch {
-    // Fallback to bundled templates
-    const fallback: RemoteTemplate[] = BUNDLED_TEMPLATES.map((t) => ({
-      slug: t.id.replace("tpl-", ""),
-      minVersion: ">=0.0.0",
-      compatible: true,
-      template: t,
-    }));
-    return { ok: true, templates: fallback, error: "Using offline bundled templates" };
+    return { ok: false, templates: [], error: "Failed to fetch template catalog. Check your network connection." };
   }
 }
 
 /**
  * Fetch a single template by slug from the remote registry.
- * Falls back to bundled template if available.
  */
 export async function fetchSingleTemplate(
   slug: string,
@@ -155,13 +145,6 @@ export async function fetchSingleTemplate(
 
     return { ok: true, template };
   } catch {
-    // Fallback to bundled
-    const bundled = BUNDLED_TEMPLATES.find(
-      (t) => t.id === `tpl-${slug}` || t.id === slug,
-    );
-    if (bundled) {
-      return { ok: true, template: bundled };
-    }
-    return { ok: false, error: `Failed to fetch template "${slug}" and no bundled fallback` };
+    return { ok: false, error: `Failed to fetch template "${slug}". Check your network connection.` };
   }
 }

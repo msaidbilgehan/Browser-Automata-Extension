@@ -1,0 +1,35 @@
+{
+  "_format": "browser-automata-export",
+  "_schemaVersion": 1,
+  "_exportedAt": "2026-03-22T00:00:00.000Z",
+  "_includesSecrets": false,
+  "templates": [
+    {
+      "id": "tpl-auto-skip-youtube-ads",
+      "name": "Auto Skip YouTube Ads",
+      "description": "Automatically skips YouTube ads by clicking the skip button, closing overlay ads, and speeding through unskippable ads. Handles pre-roll, mid-roll, and overlay ad formats.",
+      "category": "productivity",
+      "tags": ["youtube", "ads", "skip", "auto-skip", "ad-blocker", "video"],
+      "author": "Browser Automata",
+      "meta": {
+        "createdAt": "2026-03-22T00:00:00.000Z",
+        "updatedAt": "2026-03-22T00:00:00.000Z",
+        "templateVersion": "1.0.0"
+      },
+      "scripts": [
+        {
+          "name": "Auto Skip YouTube Ads",
+          "description": "Monitors the YouTube player for ads and automatically skips them. Clicks the skip button when available, closes overlay ads, and speeds through unskippable ads.",
+          "code": "(function() {\n  'use strict';\n\n  const SKIP_SELECTORS = [\n    '.ytp-skip-ad-button',\n    '.ytp-ad-skip-button',\n    '.ytp-ad-skip-button-modern',\n    'button.ytp-ad-skip-button',\n    '.ytp-ad-skip-button-container button',\n    '[id=\"skip-button:8\"]',\n    '.ytp-ad-skip-button-slot button'\n  ];\n\n  const OVERLAY_SELECTORS = [\n    '.ytp-ad-overlay-close-button',\n    '.ytp-ad-overlay-close-container',\n    '.iv-close-button',\n    'button[data-tooltip-target-id=\"a-]\"'\n  ];\n\n  const BANNER_SELECTORS = [\n    'ytd-ad-slot-renderer',\n    'ytd-banner-promo-renderer',\n    'ytd-statement-banner-renderer',\n    'ytd-in-feed-ad-layout-renderer',\n    'tp-yt-paper-dialog:has(#dismiss-button)',\n    '.ytd-mealbar-promo-renderer'\n  ];\n\n  function clickElement(selectors) {\n    for (const sel of selectors) {\n      const el = document.querySelector(sel);\n      if (el instanceof HTMLElement) {\n        el.click();\n        return true;\n      }\n    }\n    return false;\n  }\n\n  function removeBannerAds() {\n    for (const sel of BANNER_SELECTORS) {\n      const els = document.querySelectorAll(sel);\n      els.forEach(function(el) {\n        el.remove();\n      });\n    }\n  }\n\n  function handleVideoAd() {\n    const player = document.querySelector('.html5-video-player');\n    if (!player) return;\n\n    const isAdPlaying = player.classList.contains('ad-showing') ||\n                        player.classList.contains('ad-interrupting');\n    if (!isAdPlaying) return;\n\n    if (clickElement(SKIP_SELECTORS)) return;\n\n    const video = document.querySelector('video.html5-main-video');\n    if (video instanceof HTMLVideoElement && video.duration > 0) {\n      video.playbackRate = 16;\n      video.currentTime = video.duration - 0.1;\n      video.muted = true;\n    }\n  }\n\n  function run() {\n    handleVideoAd();\n    clickElement(OVERLAY_SELECTORS);\n    removeBannerAds();\n  }\n\n  run();\n\n  const observer = new MutationObserver(function() {\n    run();\n  });\n\n  observer.observe(document.body, {\n    childList: true,\n    subtree: true,\n    attributes: true,\n    attributeFilter: ['class']\n  });\n\n  setInterval(run, 500);\n\n  console.log('[Auto Skip YouTube Ads] Active — ads will be skipped automatically.');\n})();",
+          "trigger": "page_load",
+          "scope": { "type": "glob", "value": "*://*.youtube.com/*" },
+          "executionWorld": "MAIN",
+          "runAt": "document_idle",
+          "enabled": true,
+          "priority": 0,
+          "profileId": null
+        }
+      ]
+    }
+  ]
+}

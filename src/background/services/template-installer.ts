@@ -1,6 +1,5 @@
 import { localStore } from "@/shared/storage";
 import { generateId, now } from "@/shared/utils";
-import { BUNDLED_TEMPLATES } from "@/data/templates/index";
 import { fetchSingleTemplate } from "./template-registry";
 import { computeTemplateContentHash, computeLocalEntitiesHash } from "@/shared/template-hash";
 import type {
@@ -314,23 +313,16 @@ async function removeTemplateEntities(templateId: string): Promise<void> {
 }
 
 /**
- * Resolve a template by ID: try remote first, then bundled.
+ * Resolve a template by ID from the remote registry.
  */
 async function resolveTemplate(
   templateId: string,
 ): Promise<{ template: Template | null; error?: string }> {
   const slug = templateId.startsWith("tpl-") ? templateId.slice(4) : templateId;
 
-  // Try remote fetch first
   const remote = await fetchSingleTemplate(slug);
   if (remote.ok && remote.template) {
     return { template: remote.template };
-  }
-
-  // Fallback: check bundled templates
-  const bundled = BUNDLED_TEMPLATES.find((t) => t.id === templateId);
-  if (bundled) {
-    return { template: bundled };
   }
 
   return { template: null, error: remote.error ?? "Template not found" };
@@ -512,9 +504,3 @@ export async function computeLocalHash(
   });
 }
 
-/**
- * Return the list of available bundled templates.
- */
-export function getAvailableTemplates(): Template[] {
-  return BUNDLED_TEMPLATES;
-}

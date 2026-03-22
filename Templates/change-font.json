@@ -1,0 +1,31 @@
+{
+  "_format": "browser-automata-export",
+  "_schemaVersion": 1,
+  "_exportedAt": "2026-03-22T00:00:00.000Z",
+  "_includesSecrets": false,
+  "templates": [
+    {
+      "id": "tpl-change-font",
+      "name": "ChangeFont",
+      "description": "Overrides the font on every page with your chosen font family, sizes per tag, colors, underline, and highlight. Edit the CSS variables at the top to customize your preferred typography.",
+      "category": "accessibility",
+      "tags": ["font", "typography", "font-family", "font-size", "color", "underline", "highlight", "customization"],
+      "author": "Browser Automata",
+      "meta": {
+        "createdAt": "2026-03-22T00:00:00.000Z",
+        "updatedAt": "2026-03-22T00:00:00.000Z",
+        "templateVersion": "1.0.0"
+      },
+      "cssRules": [
+        {
+          "name": "ChangeFont Global Override",
+          "css": "/* ===== ChangeFont Configuration =====\n   Edit the variables below to customize.\n   To use a Google Font, import it via the @import rule.\n   ======================================= */\n\n/* Uncomment and edit to import a Google Font: */\n/* @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'); */\n\n:root {\n  /* Font Family — change to any installed or imported font */\n  --ba-font-family: \"Inter\", \"Segoe UI\", system-ui, -apple-system, sans-serif;\n\n  /* Font Sizes per tag */\n  --ba-font-size-body: 16px;\n  --ba-font-size-h1: 2em;\n  --ba-font-size-h2: 1.6em;\n  --ba-font-size-h3: 1.3em;\n  --ba-font-size-h4: 1.1em;\n  --ba-font-size-h5: 1em;\n  --ba-font-size-h6: 0.9em;\n  --ba-font-size-p: 16px;\n  --ba-font-size-li: 16px;\n  --ba-font-size-a: 16px;\n  --ba-font-size-span: inherit;\n  --ba-font-size-code: 14px;\n  --ba-font-size-small: 13px;\n\n  /* Colors */\n  --ba-text-color: inherit;\n  --ba-heading-color: inherit;\n  --ba-link-color: inherit;\n\n  /* Decoration — set to 'underline' or 'none' */\n  --ba-text-decoration: none;\n  --ba-link-decoration: underline;\n\n  /* Highlight — set a background color or 'transparent' */\n  --ba-highlight-bg: transparent;\n  --ba-highlight-color: inherit;\n}\n\n/* ===== Global font override ===== */\nhtml, body, div, span, p, a, li, td, th, label,\ninput, textarea, select, button, blockquote, figcaption,\n.text, .content, .article, .post, .entry, .description {\n  font-family: var(--ba-font-family) !important;\n  color: var(--ba-text-color) !important;\n  text-decoration: var(--ba-text-decoration) !important;\n}\n\n/* ===== Body base size ===== */\nbody {\n  font-size: var(--ba-font-size-body) !important;\n}\n\n/* ===== Heading sizes and color ===== */\nh1 {\n  font-family: var(--ba-font-family) !important;\n  font-size: var(--ba-font-size-h1) !important;\n  color: var(--ba-heading-color) !important;\n}\n\nh2 {\n  font-family: var(--ba-font-family) !important;\n  font-size: var(--ba-font-size-h2) !important;\n  color: var(--ba-heading-color) !important;\n}\n\nh3 {\n  font-family: var(--ba-font-family) !important;\n  font-size: var(--ba-font-size-h3) !important;\n  color: var(--ba-heading-color) !important;\n}\n\nh4 {\n  font-family: var(--ba-font-family) !important;\n  font-size: var(--ba-font-size-h4) !important;\n  color: var(--ba-heading-color) !important;\n}\n\nh5 {\n  font-family: var(--ba-font-family) !important;\n  font-size: var(--ba-font-size-h5) !important;\n  color: var(--ba-heading-color) !important;\n}\n\nh6 {\n  font-family: var(--ba-font-family) !important;\n  font-size: var(--ba-font-size-h6) !important;\n  color: var(--ba-heading-color) !important;\n}\n\n/* ===== Element-specific sizes ===== */\np {\n  font-family: var(--ba-font-family) !important;\n  font-size: var(--ba-font-size-p) !important;\n}\n\nli {\n  font-family: var(--ba-font-family) !important;\n  font-size: var(--ba-font-size-li) !important;\n}\n\na {\n  font-family: var(--ba-font-family) !important;\n  font-size: var(--ba-font-size-a) !important;\n  color: var(--ba-link-color) !important;\n  text-decoration: var(--ba-link-decoration) !important;\n}\n\nspan {\n  font-family: var(--ba-font-family) !important;\n  font-size: var(--ba-font-size-span) !important;\n}\n\ncode, pre, kbd, samp {\n  font-size: var(--ba-font-size-code) !important;\n}\n\nsmall {\n  font-family: var(--ba-font-family) !important;\n  font-size: var(--ba-font-size-small) !important;\n}\n\n/* ===== Highlight effect ===== */\np, li, span, a, td, th, label, div {\n  background-color: var(--ba-highlight-bg) !important;\n}",
+          "scope": { "type": "global", "value": "*" },
+          "enabled": true,
+          "injectAt": "document_start",
+          "profileId": null
+        }
+      ]
+    }
+  ]
+}
