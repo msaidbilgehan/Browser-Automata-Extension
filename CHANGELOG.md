@@ -4,6 +4,35 @@ All notable changes to Browser Automata are documented in this file.
 
 ---
 
+## v0.2.5 — 2026-03-22
+
+> Quick Tip shortcut overlay, scope mode inheritance for Quick Run and Shortcuts, and Quick Run Bar UX refinements.
+
+### New Features
+
+- **Quick Tip Overlay** — Auto-dismissing tooltip on page load that shows active keyboard shortcuts for the current page, with configurable timeout and enable/disable toggle in Settings.
+- **Scope Mode (Follow / Override)** — Quick Run actions and Shortcuts can now inherit their target entity's URL scope (`follow`), combine it with a custom scope (`override`), or use a standalone custom scope (`custom`, default). Eliminates duplicate scope configuration when the action already targets a scoped entity.
+
+### Improvements
+
+- **Quick Run Bar Viewport Clamping** — Bar position is clamped to stay within the visible viewport with an 8px edge margin, preventing it from being dragged off-screen.
+- **Quick Run Live Broadcast** — Saving, deleting, or reordering quick run actions immediately pushes updates to all open tabs without requiring a page refresh.
+- **Quick Run Auto-Show/Hide** — Bar auto-shows when domain-matched actions exist and auto-hides otherwise; manual toggle via shortcut overrides to show all actions regardless of scope.
+- **Quick Tip Settings** — New settings section with enable toggle and auto-dismiss timeout (default 3000ms).
+
+### Architecture
+
+- **Scope Resolver Service** — New `scope-resolver.ts` resolves the URL scope of a Quick Run or Shortcut's target entity (script, flow, extraction rule, or form fill profile) for scope mode evaluation.
+- **`matchUrlWithScopeMode` Utility** — New URL pattern matcher that respects scope mode (`custom`, `follow`, `override`) when determining if an action applies to a page.
+- **`UPDATE_QUICK_TIP_SHORTCUTS` Message** — New SW-to-content message type for pushing matching shortcuts to the Quick Tip overlay.
+
+### Code Quality
+
+- **Quick Run Bar drag logic simplified** — Replaced conditional direction calculations with a unified offset formula based on anchor position.
+- **Settings handler merge** — `quickRun` settings are now properly deep-merged during `SETTINGS_UPDATE`, and bar position persistence routes through the message handler instead of direct storage writes.
+
+---
+
 ## v0.2.4 — 2026-03-22
 
 > Quick Run Bar settings UI, shared URL pattern utilities, and build/template maintenance.
