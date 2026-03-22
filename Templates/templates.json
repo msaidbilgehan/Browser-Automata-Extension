@@ -44,7 +44,7 @@
   "twitter-x-media-downloader": {
     "version": ">=0.2.1",
     "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/twitter-x-media-downloader.json",
-    "contentHash": "0beefe883d021a85c035c6cdc817354ccffcdb8c727e356d233920f9e3ac5c0c",
+    "contentHash": "62806d52abf3033d6169efccf8c4ba1deaa40c7d621d467af8e6f81692cb92e2",
     "updatedAt": "2026-03-22T00:00:00.000Z"
   },
   "remove-web-limits": {
