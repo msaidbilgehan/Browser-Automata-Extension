@@ -20,7 +20,7 @@
   "cookie-banner-dismisser": {
     "version": ">=0.2.1",
     "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/cookie-banner-dismisser.json",
-    "contentHash": "c4fee3b5bc4e1091cea73d3712784a472f3eb8b6a37995c3bc338b76c4b859d6",
+    "contentHash": "a516946c3dbd17da14d469cc586f4b6fbb66c46c3416c7ba1726a4db3c17072a",
     "updatedAt": "2026-03-22T00:00:00.000Z"
   },
   "auto-clicker": {
