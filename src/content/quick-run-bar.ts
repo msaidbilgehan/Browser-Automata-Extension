@@ -186,18 +186,12 @@ function applyPosition(): void {
 function renderBar(): void {
   if (!barEl) return;
 
-  const hasDomainMatch = matchingIdSet.size > 0;
-
-  // Decide which actions to display:
-  //  - domain matches  → only matching actions (auto-shown)
-  //  - shortcut toggle → all actions regardless of domain
-  const displayActions = hasDomainMatch
-    ? allActions.filter((a) => matchingIdSet.has(a.id))
-    : allActions;
+  // Always display only the actions whose scope matches the current URL.
+  const displayActions = allActions.filter((a) => matchingIdSet.has(a.id));
 
   const hasActions = displayActions.length > 0;
-  // Show when: enabled, has actions, AND either domain matches (auto) or user toggled visible
-  const shouldShow = barEnabled && hasActions && (hasDomainMatch || barVisible);
+  // Show when: enabled, has matching actions, AND user has not toggled the bar hidden
+  const shouldShow = barEnabled && hasActions && barVisible;
 
   if (!shouldShow) {
     barEl.setAttribute("data-ba-hidden", "");
