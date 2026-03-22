@@ -12,6 +12,7 @@ export interface Settings {
     iconColor: "dark" | "white" | "system";
     iconTransparent: boolean;
     confirmBeforeRun: boolean;
+    viewMode: "basic" | "advanced";
   };
   execution: {
     scriptTimeoutMs: number;
@@ -38,6 +39,7 @@ export const DEFAULT_SETTINGS: Settings = {
     iconColor: "system",
     iconTransparent: false,
     confirmBeforeRun: false,
+    viewMode: "basic",
   },
   execution: {
     scriptTimeoutMs: 30_000,

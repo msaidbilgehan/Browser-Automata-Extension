@@ -199,6 +199,19 @@ export function SettingsView() {
             size="sm"
           />
         </div>
+        <Select
+          label="View Mode"
+          value={settings.ui.viewMode}
+          onChange={(e) =>
+            void updateSettings({
+              ui: { ...settings.ui, viewMode: e.target.value as "basic" | "advanced" },
+            })
+          }
+          options={[
+            { value: "basic", label: "Basic" },
+            { value: "advanced", label: "Advanced" },
+          ]}
+        />
       </section>
 
       {/* Execution */}

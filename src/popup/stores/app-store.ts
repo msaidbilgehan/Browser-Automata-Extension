@@ -5,6 +5,26 @@ import { DEFAULT_SETTINGS } from "@/shared/types";
 import { sendToBackground } from "@/shared/messaging";
 import { onSyncStorageChange } from "@/shared/storage";
 
+/* ── Tabs visible per view mode ── */
+const BASIC_TABS: Set<TabId> = new Set([
+  "shortcuts", "flows", "extraction", "templates", "profiles",
+  "import-export", "log", "settings",
+]);
+const ADVANCED_TABS: Set<TabId> = new Set([
+  "scripts", "shortcuts", "flows", "log",
+  "css-rules", "network-rules", "extraction", "domains",
+  "profiles", "templates", "import-export", "health", "settings",
+]);
+
+function isTabVisibleInMode(tab: TabId, mode: "basic" | "advanced"): boolean {
+  return mode === "basic" ? BASIC_TABS.has(tab) : ADVANCED_TABS.has(tab);
+}
+
+const DEFAULT_TAB_FOR_MODE: Record<"basic" | "advanced", TabId> = {
+  basic: "shortcuts",
+  advanced: "scripts",
+};
+
 function mergeWithDefaults(stored: Partial<Settings>): Settings {
   return {
     ...DEFAULT_SETTINGS,
@@ -125,19 +145,24 @@ export const useAppStore = create<AppState>((set, get) => {
     },
 
     updateSettings: async (partial) => {
-      const { settings } = get();
+      const { settings, activeTab } = get();
       try {
         await sendToBackground({ type: "SETTINGS_UPDATE", settings: partial });
-        set({
-          settings: {
-            ...settings,
-            ...partial,
-            logging: { ...settings.logging, ...partial.logging },
-            ui: { ...settings.ui, ...partial.ui },
-            execution: { ...settings.execution, ...partial.execution },
-            feedback: { ...settings.feedback, ...partial.feedback },
-          },
-        });
+        const merged = {
+          ...settings,
+          ...partial,
+          logging: { ...settings.logging, ...partial.logging },
+          ui: { ...settings.ui, ...partial.ui },
+          execution: { ...settings.execution, ...partial.execution },
+          feedback: { ...settings.feedback, ...partial.feedback },
+        };
+        // If viewMode changed, reset active tab if it's not visible in the new mode
+        const newMode = merged.ui.viewMode;
+        const update: Partial<AppState> = { settings: merged };
+        if (newMode !== settings.ui.viewMode && !isTabVisibleInMode(activeTab, newMode)) {
+          update.activeTab = DEFAULT_TAB_FOR_MODE[newMode];
+        }
+        set(update);
       } catch (err) {
         set({ error: String(err) });
       }

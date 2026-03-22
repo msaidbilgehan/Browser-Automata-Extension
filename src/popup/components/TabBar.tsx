@@ -1,7 +1,14 @@
-import { FileCode, Keyboard, GitBranch, ScrollText, MoreHorizontal } from "lucide-react";
+import {
+  FileCode,
+  Keyboard,
+  GitBranch,
+  ScrollText,
+  MoreHorizontal,
+  Pickaxe,
+} from "lucide-react";
 import { useAppStore } from "../stores/app-store";
 import type { TabId } from "../stores/app-store";
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 
 interface TabItem {
   id: TabId;
@@ -9,14 +16,30 @@ interface TabItem {
   icon: React.ReactNode;
 }
 
-const PRIMARY_TABS: TabItem[] = [
+/* ── Tab definitions per view mode ── */
+
+const BASIC_PRIMARY: TabItem[] = [
+  { id: "shortcuts", label: "Keys", icon: <Keyboard size={16} /> },
+  { id: "flows", label: "Flows", icon: <GitBranch size={16} /> },
+  { id: "extraction", label: "Extract", icon: <Pickaxe size={16} /> },
+  { id: "log", label: "Log", icon: <ScrollText size={16} /> },
+];
+
+const BASIC_MORE: TabItem[] = [
+  { id: "templates", label: "Templates", icon: null },
+  { id: "profiles", label: "Profiles", icon: null },
+  { id: "import-export", label: "Import/Export", icon: null },
+  { id: "settings", label: "Settings", icon: null },
+];
+
+const ADVANCED_PRIMARY: TabItem[] = [
   { id: "scripts", label: "Scripts", icon: <FileCode size={16} /> },
   { id: "shortcuts", label: "Keys", icon: <Keyboard size={16} /> },
   { id: "flows", label: "Flows", icon: <GitBranch size={16} /> },
   { id: "log", label: "Log", icon: <ScrollText size={16} /> },
 ];
 
-const MORE_TABS: TabItem[] = [
+const ADVANCED_MORE: TabItem[] = [
   { id: "css-rules", label: "CSS Rules", icon: null },
   { id: "network-rules", label: "Network", icon: null },
   { id: "extraction", label: "Extract", icon: null },
@@ -31,7 +54,17 @@ const MORE_TABS: TabItem[] = [
 export function TabBar() {
   const activeTab = useAppStore((s) => s.activeTab);
   const setActiveTab = useAppStore((s) => s.setActiveTab);
+  const viewMode = useAppStore((s) => s.settings.ui.viewMode);
   const [moreOpen, setMoreOpen] = useState(false);
+
+  const PRIMARY_TABS = useMemo(
+    () => (viewMode === "basic" ? BASIC_PRIMARY : ADVANCED_PRIMARY),
+    [viewMode],
+  );
+  const MORE_TABS = useMemo(
+    () => (viewMode === "basic" ? BASIC_MORE : ADVANCED_MORE),
+    [viewMode],
+  );
   const tabListRef = useRef<HTMLElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
 
