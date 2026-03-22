@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import type { KeyCombo, UrlPattern, EntityId } from "@/shared/types/entities";
 import { localStore } from "@/shared/storage";
 import { serializeKeyCombo, type ConflictWarning } from "@/background/services/conflict-detector";
+import { scopesOverlap } from "@/shared/url-pattern";
 
 /** Known browser keyboard shortcuts that should trigger warnings */
 const BROWSER_SHORTCUTS: string[] = [
@@ -20,13 +21,6 @@ function keyComboEquals(a: KeyCombo, b: KeyCombo): boolean {
     a.altKey === b.altKey &&
     a.metaKey === b.metaKey
   );
-}
-
-function scopesOverlap(a: UrlPattern, b: UrlPattern): boolean {
-  if (a.type === "global" || b.type === "global") return true;
-  if (a.type === b.type && a.value === b.value) return true;
-  if (a.type === "exact" && b.type === "exact") return a.value === b.value;
-  return true;
 }
 
 /**

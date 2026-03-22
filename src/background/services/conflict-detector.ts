@@ -1,5 +1,6 @@
 import { localStore } from "@/shared/storage";
-import type { KeyCombo, Shortcut, UrlPattern } from "@/shared/types/entities";
+import type { KeyCombo, Shortcut } from "@/shared/types/entities";
+import { scopesOverlap } from "@/shared/url-pattern";
 
 /** Known browser keyboard shortcuts that should trigger warnings */
 const BROWSER_SHORTCUTS: string[] = [
@@ -116,14 +117,3 @@ function keyComboEquals(
   });
 }
 
-/** Simplified scope overlap check */
-function scopesOverlap(a: UrlPattern, b: UrlPattern): boolean {
-  // Global overlaps with everything
-  if (a.type === "global" || b.type === "global") return true;
-  // Same type and value = definite overlap
-  if (a.type === b.type && a.value === b.value) return true;
-  // Different exact domains = no overlap
-  if (a.type === "exact" && b.type === "exact") return a.value === b.value;
-  // Conservative: assume overlap for mixed types
-  return true;
-}

@@ -122,6 +122,103 @@ export function globToRegex(glob: string): RegExp {
   return new RegExp(result);
 }
 
+/**
+ * Extract the base domain from a single glob segment (no commas).
+ * Handles protocol prefixes like `*://` or `https://` and leading `*.`
+ * wildcards. Returns the root domain or null if indeterminate.
+ */
+function extractGlobSegmentDomain(segment: string): string | null {
+  let value = segment.trim();
+  // Strip protocol prefix: "*://", "https://", "http://", etc.
+  const protoIdx = value.indexOf("://");
+  if (protoIdx !== -1) {
+    value = value.slice(protoIdx + 3);
+  }
+  // Strip leading *. (subdomain wildcard)
+  if (value.startsWith("*.")) {
+    value = value.slice(2);
+  }
+  // Take only the hostname part (before any /)
+  const hostPart = value.split("/")[0];
+  if (!hostPart) return null;
+  // If hostname still contains wildcards, we can't determine a fixed domain
+  if (hostPart.includes("*") || hostPart.includes("?")) return null;
+  return hostPart.toLowerCase();
+}
+
+/**
+ * Extract base domains from a UrlPattern.
+ * Returns an array of domain strings for domain comparison, or null
+ * if the domain cannot be reliably determined (e.g. complex regex).
+ *
+ * Handles comma-separated multi-patterns (e.g. `*.youtube.com/*,*.vimeo.com/*`)
+ * and protocol prefixes (e.g. `*://*.youtube.com/*`).
+ */
+export function extractPatternDomains(pattern: UrlPattern): string[] | null {
+  if (pattern.type === "global") return null;
+
+  if (pattern.type === "exact") {
+    return [pattern.value.toLowerCase()];
+  }
+
+  if (pattern.type === "glob") {
+    // Split comma-separated patterns
+    const segments = pattern.value.split(",");
+    const domains: string[] = [];
+
+    for (const segment of segments) {
+      const domain = extractGlobSegmentDomain(segment);
+      if (domain === null) return null; // One indeterminate segment → give up
+      domains.push(domain);
+    }
+
+    return domains.length > 0 ? domains : null;
+  }
+
+  // regex — too complex to reliably extract a domain
+  return null;
+}
+
+/** Check if two domains could match the same URL (same domain or parent/subdomain) */
+function domainsOverlap(a: string, b: string): boolean {
+  return a === b || a.endsWith("." + b) || b.endsWith("." + a);
+}
+
+/**
+ * Check whether two URL-pattern scopes could match the same URL.
+ *
+ * When both patterns target deterministic domains we compare those
+ * domains: `exact:"github.com"` vs `glob:"*.youtube.com"` → no overlap.
+ *
+ * Handles comma-separated multi-patterns and protocol prefixes.
+ * For patterns whose domain cannot be extracted (regex, complex globs)
+ * we conservatively assume overlap.
+ */
+export function scopesOverlap(a: UrlPattern, b: UrlPattern): boolean {
+  // Global overlaps with everything
+  if (a.type === "global" || b.type === "global") return true;
+
+  // Identical pattern — definite overlap
+  if (a.type === b.type && a.value === b.value) return true;
+
+  // Extract domains from both patterns
+  const domainsA = extractPatternDomains(a);
+  const domainsB = extractPatternDomains(b);
+
+  // If both domain lists are known, check if any pair could overlap
+  if (domainsA !== null && domainsB !== null) {
+    for (const da of domainsA) {
+      for (const db of domainsB) {
+        if (domainsOverlap(da, db)) return true;
+      }
+    }
+    return false;
+  }
+
+  // Conservative: if we can't determine one or both domains, assume overlap
+  return true;
+}
+
 function extractHostname(url: string): string {
   const parsed = safeParseUrl(url);
   return parsed?.hostname ?? "";

@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import { ArrowLeft, Download, Upload, AlertCircle } from "lucide-react";
 import type { BrowserAutomataExport, ImportMergeStrategy } from "@/shared/types/entities";
+import type { QuickRunBarPosition } from "@/shared/types/settings";
 import { sendToBackground } from "@/shared/messaging";
 import { useAppStore } from "../../stores/app-store";
 import { Toggle } from "../ui/Toggle";
@@ -8,6 +9,7 @@ import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
+import { KeyCaptureInput, formatKeyCombo } from "../editor/KeyCaptureInput";
 import {
   EXPORT_SECTIONS,
   type ExportSectionKey,
@@ -331,6 +333,69 @@ export function SettingsView() {
             onChange={(checked) =>
               void updateSettings({
                 feedback: { ...settings.feedback, highlightEnabled: checked },
+              })
+            }
+            size="sm"
+          />
+        </div>
+      </section>
+
+      {/* Quick Run Bar */}
+      <section className="flex flex-col gap-2">
+        <h3 className="text-text-muted text-xs font-medium tracking-wider uppercase">
+          Quick Run Bar
+        </h3>
+        <div className="flex items-center justify-between">
+          <span className="text-text-secondary text-xs">Show In-Page Bar</span>
+          <Toggle
+            checked={settings.quickRun.barEnabled}
+            onChange={(checked) =>
+              void updateSettings({
+                quickRun: { ...settings.quickRun, barEnabled: checked },
+              })
+            }
+            size="sm"
+          />
+        </div>
+        <KeyCaptureInput
+          label="Toggle Shortcut"
+          value={settings.quickRun.toggleShortcut}
+          onChange={(combo) =>
+            void updateSettings({
+              quickRun: { ...settings.quickRun, toggleShortcut: combo },
+            })
+          }
+        />
+        {settings.quickRun.toggleShortcut ? (
+          <p className="text-text-muted text-[10px]">
+            Press {formatKeyCombo(settings.quickRun.toggleShortcut)} on any page to toggle the bar.
+          </p>
+        ) : null}
+        <Select
+          label="Bar Position"
+          value={settings.quickRun.barPosition}
+          onChange={(e) =>
+            void updateSettings({
+              quickRun: {
+                ...settings.quickRun,
+                barPosition: e.target.value as QuickRunBarPosition,
+              },
+            })
+          }
+          options={[
+            { value: "top-right", label: "Top Right" },
+            { value: "top-left", label: "Top Left" },
+            { value: "bottom-right", label: "Bottom Right" },
+            { value: "bottom-left", label: "Bottom Left" },
+          ]}
+        />
+        <div className="flex items-center justify-between">
+          <span className="text-text-secondary text-xs">Show In Popup</span>
+          <Toggle
+            checked={settings.quickRun.showInPopup}
+            onChange={(checked) =>
+              void updateSettings({
+                quickRun: { ...settings.quickRun, showInPopup: checked },
               })
             }
             size="sm"

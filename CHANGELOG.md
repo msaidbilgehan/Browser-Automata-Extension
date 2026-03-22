@@ -4,6 +4,26 @@ All notable changes to Browser Automata are documented in this file.
 
 ---
 
+## v0.2.4 — 2026-03-22
+
+> Quick Run Bar settings UI, shared URL pattern utilities, and build/template maintenance.
+
+### New Features
+
+- **Quick Run Bar Settings** — Adds a dedicated settings section for configuring the in-page Quick Run bar: toggle visibility, set the toggle hotkey, and choose bar position (top/bottom).
+
+### Improvements
+
+- **Cookie Banner Dismisser** — Updates the bundled cookie banner dismisser template.
+- **Auto Hash-Templates Build Script** — Adds a build script that automatically hashes templates during the build process.
+
+### Code Quality
+
+- **Shared `scopesOverlap` Utility** — Deduplicates the `scopesOverlap` function from `conflict-detector.ts` and `use-key-combo-conflicts.ts` into the shared `url-pattern` module with an improved implementation that performs real domain extraction and glob matching.
+- **`extractPatternDomains` Utility** — New shared helper that extracts base domains from URL pattern glob values for more precise overlap detection.
+
+---
+
 ## v0.2.3 — 2026-03-22
 
 > Quick Run floating action bar, template lifecycle management, and new entity type for single-click automation execution.
