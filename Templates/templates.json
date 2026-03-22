@@ -38,13 +38,13 @@
   "github-directory-download": {
     "version": ">=0.2.1",
     "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/github-directory-download.json",
-    "contentHash": "cf510cefdadd9cacf6a3cef1396d0a304515b7fb82e8eb6eaeff063c752c6d5a",
+    "contentHash": "a9958e108efb16cb6dc6c14eaf5f7c28728f6fc3a0c72d956428521d2d9953f8",
     "updatedAt": "2026-03-22T00:00:00.000Z"
   },
   "twitter-x-media-downloader": {
     "version": ">=0.2.1",
     "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/twitter-x-media-downloader.json",
-    "contentHash": "62806d52abf3033d6169efccf8c4ba1deaa40c7d621d467af8e6f81692cb92e2",
+    "contentHash": "a5dfc10a764ff261d01936d937ce193b9361eefee489faa91c5206a2b2daacfb",
     "updatedAt": "2026-03-22T00:00:00.000Z"
   },
   "remove-web-limits": {
@@ -56,7 +56,7 @@
   "instagram-download-button": {
     "version": ">=0.2.1",
     "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/instagram-download-button.json",
-    "contentHash": "f4d929e237e98b1942509fa29ca32ffbf6ffd010786fe5f00b0a0813c56a79e6",
+    "contentHash": "228db07dca8db7ba8044ef00a6f6174f97dcfd476827d3391b1813450e4067ad",
     "updatedAt": "2026-03-22T00:00:00.000Z"
   },
   "open-movie-search": {
