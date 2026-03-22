@@ -11,6 +11,7 @@ import { extractFromDOM } from "./extractor";
 import { highlightSelector, clearHighlights } from "./selector-tester";
 import { initToast, updateToastSettings } from "./toast";
 import { updateHighlightSettings } from "./action-highlight";
+import { initQuickRunBar, setQuickRunActions } from "./quick-run-bar";
 
 /** Returns false when the extension has been reloaded/uninstalled and this content script is orphaned */
 function isContextValid(): boolean {
@@ -32,6 +33,7 @@ function applyFeedbackSettings(feedback: Settings["feedback"]): void {
 // Initialize shortcut keyboard listener and toast system
 initShortcutListener();
 initToast();
+initQuickRunBar();
 
 // Load initial feedback settings and listen for changes
 if (isContextValid()) {
@@ -126,6 +128,9 @@ chrome.runtime.onMessage.addListener(
         }
         case "CLEAR_TEST_HIGHLIGHT":
           clearHighlights();
+          break;
+        case "UPDATE_QUICK_RUN_ACTIONS":
+          setQuickRunActions(message.actions);
           break;
       }
     } catch (err) {

@@ -37,6 +37,9 @@ export type {
   FallbackSelectors,
   SelectorStrategy,
   SelectorAlternative,
+  QuickRunTargetType,
+  QuickRunTarget,
+  QuickRunAction,
 } from "./entities";
 
 export type {
@@ -90,9 +93,16 @@ export type {
   NotificationRuleDeleteMessage,
   GetHealthMessage,
   HealthResponse,
+  QuickRunSaveMessage,
+  QuickRunDeleteMessage,
+  QuickRunReorderMessage,
+  QuickRunExecuteMessage,
+  QuickRunGetMatchingMessage,
+  QuickRunGetMatchingResponse,
+  UpdateQuickRunActionsMessage,
 } from "./messages";
 
-export type { Settings } from "./settings";
+export type { Settings, QuickRunBarPosition } from "./settings";
 export { DEFAULT_SETTINGS } from "./settings";
 
 export type { ActivityLogEntry, LogAction, LogStatus, LogEntityType } from "./activity-log";

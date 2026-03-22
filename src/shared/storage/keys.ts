@@ -15,6 +15,7 @@ import type {
   SiteAdapter,
   HealthMetrics,
   ISOTimestamp,
+  QuickRunAction,
 } from "../types/entities";
 
 /** Tracks an installed template's version for update detection */
@@ -23,6 +24,10 @@ export interface InstalledTemplateRecord {
   templateVersion: string;
   installedAt: ISOTimestamp;
   updatedAt: ISOTimestamp;
+  /** SHA-256 hash of the template content at install/update time */
+  contentHash?: string | undefined;
+  /** Template display name (stored for showing removed templates) */
+  templateName?: string | undefined;
 }
 import type { Settings } from "../types/settings";
 import type { ActivityLogEntry } from "../types/activity-log";
@@ -48,6 +53,7 @@ export interface StorageSchema {
   siteAdapters: Record<string, SiteAdapter>;
   healthMetrics: HealthMetrics;
   installedTemplates: Record<string, InstalledTemplateRecord>;
+  quickRunActions: Record<string, QuickRunAction>;
   log: ActivityLogEntry[];
   schemaVersion: number;
 }

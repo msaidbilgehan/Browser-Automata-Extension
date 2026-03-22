@@ -98,7 +98,14 @@ export async function fetchTemplateCatalog(): Promise<TemplateCatalogResponse> {
         try {
           const templates = await fetchTemplateFile(entry.url);
           const template = templates[0] ?? null;
-          return { slug, minVersion: entry.version, compatible, template };
+          return {
+            slug,
+            minVersion: entry.version,
+            compatible,
+            template,
+            contentHash: entry.contentHash,
+            updatedAt: entry.updatedAt,
+          };
         } catch {
           return { slug, minVersion: entry.version, compatible, template: null };
         }

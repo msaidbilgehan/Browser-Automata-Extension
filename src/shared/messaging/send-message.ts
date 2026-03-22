@@ -5,6 +5,7 @@ import type {
   ExportResponse,
   ExtractionRunResponse,
   HealthResponse,
+  TemplateStatusesResponse,
 } from "../types/messages";
 import type { TemplateCatalogResponse } from "../types/template-registry";
 import type { Template } from "../types/entities";
@@ -41,9 +42,12 @@ interface ResponseMap {
   EXPORT_CONFIG: ExportResponse;
   INSTALL_TEMPLATE: { ok: boolean; error?: string };
   UPDATE_TEMPLATE: { ok: boolean; error?: string; newVersion?: string };
+  UNINSTALL_TEMPLATE: { ok: boolean; error?: string };
+  RESET_TEMPLATE: { ok: boolean; error?: string };
   GET_INSTALLED_TEMPLATES: { installed: Record<string, InstalledTemplateRecord> };
   FETCH_TEMPLATE_CATALOG: TemplateCatalogResponse;
   FETCH_SINGLE_TEMPLATE: { ok: boolean; template?: Template; error?: string };
+  GET_TEMPLATE_STATUSES: TemplateStatusesResponse;
   START_RECORDING_POPUP: undefined;
   STOP_RECORDING_POPUP: undefined;
   VARIABLE_SAVE: { ok: boolean };

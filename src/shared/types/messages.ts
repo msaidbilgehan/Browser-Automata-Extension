@@ -1,4 +1,4 @@
-import type { EntityId, SelectorAlternative, ExtractionFieldTransform } from "./entities";
+import type { EntityId, SelectorAlternative, ExtractionFieldTransform, QuickRunAction } from "./entities";
 import type {
   Script,
   Shortcut,
@@ -298,6 +298,34 @@ export interface ClearTestHighlightPopupMessage {
   type: "CLEAR_TEST_HIGHLIGHT_POPUP";
 }
 
+// ─── Template status detection ──────────────────────────────────────────────
+
+/** Possible template statuses after comparing cloud vs local */
+export type TemplateStatus =
+  | "not_installed"
+  | "installed"
+  | "update_available"
+  | "local_modified"
+  | "update_and_modified"
+  | "removed";
+
+export interface GetTemplateStatusesMessage {
+  type: "GET_TEMPLATE_STATUSES";
+  queries: Array<{
+    templateId: string;
+    remoteContentHash?: string | undefined;
+    templateName: string;
+    templateDescription: string;
+    templateCategory: string;
+    templateTags: string[];
+    templateAuthor?: string | undefined;
+  }>;
+}
+
+export interface TemplateStatusesResponse {
+  statuses: Record<string, TemplateStatus>;
+}
+
 // Template install & remote catalog
 export interface InstallTemplateMessage {
   type: "INSTALL_TEMPLATE";
@@ -306,6 +334,16 @@ export interface InstallTemplateMessage {
 
 export interface UpdateTemplateMessage {
   type: "UPDATE_TEMPLATE";
+  templateId: string;
+}
+
+export interface UninstallTemplateMessage {
+  type: "UNINSTALL_TEMPLATE";
+  templateId: string;
+}
+
+export interface ResetTemplateMessage {
+  type: "RESET_TEMPLATE";
   templateId: string;
 }
 
@@ -413,6 +451,44 @@ export interface HealthResponse {
   metrics: HealthMetrics;
 }
 
+// ─── Quick Run messages ─────────────────────────────────────────────────────
+
+export interface QuickRunSaveMessage {
+  type: "QUICK_RUN_SAVE";
+  action: QuickRunAction;
+}
+
+export interface QuickRunDeleteMessage {
+  type: "QUICK_RUN_DELETE";
+  actionId: EntityId;
+}
+
+export interface QuickRunReorderMessage {
+  type: "QUICK_RUN_REORDER";
+  orderedIds: EntityId[];
+}
+
+export interface QuickRunExecuteMessage {
+  type: "QUICK_RUN_EXECUTE";
+  actionId: EntityId;
+}
+
+export interface QuickRunGetMatchingMessage {
+  type: "QUICK_RUN_GET_MATCHING";
+  url: string;
+}
+
+export interface QuickRunGetMatchingResponse {
+  actions: QuickRunAction[];
+}
+
+// ─── Service Worker → Content Script (Quick Run) ────────────────────────────
+
+export interface UpdateQuickRunActionsMessage {
+  type: "UPDATE_QUICK_RUN_ACTIONS";
+  actions: QuickRunAction[];
+}
+
 // ─── Service Worker → Popup/Options (Responses) ────────────────────────────
 
 export interface StateResponse {
@@ -488,9 +564,12 @@ export type PopupToSWMessage =
   | StopRecordingPopupMessage
   | InstallTemplateMessage
   | UpdateTemplateMessage
+  | UninstallTemplateMessage
+  | ResetTemplateMessage
   | GetInstalledTemplatesMessage
   | FetchTemplateCatalogMessage
   | FetchSingleTemplateMessage
+  | GetTemplateStatusesMessage
   | GetLogMessage
   | ClearLogMessage
   | VariableSaveMessage
@@ -507,7 +586,12 @@ export type PopupToSWMessage =
   | GetHealthMessage
   | PickElementPopupMessage
   | TestSelectorPopupMessage
-  | ClearTestHighlightPopupMessage;
+  | ClearTestHighlightPopupMessage
+  | QuickRunSaveMessage
+  | QuickRunDeleteMessage
+  | QuickRunReorderMessage
+  | QuickRunExecuteMessage
+  | QuickRunGetMatchingMessage;
 
 /** Messages from content script to service worker */
 export type ContentToSWMessage =
@@ -527,7 +611,8 @@ export type SWToContentMessage =
   | PickElementMessage
   | ExtractDataMessage
   | TestSelectorMessage
-  | ClearTestHighlightMessage;
+  | ClearTestHighlightMessage
+  | UpdateQuickRunActionsMessage;
 
 /** All messages */
 export type Message = PopupToSWMessage | ContentToSWMessage | SWToContentMessage;

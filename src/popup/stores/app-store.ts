@@ -8,12 +8,12 @@ import { onSyncStorageChange } from "@/shared/storage";
 /* ── Tabs visible per view mode ── */
 const BASIC_TABS: Set<TabId> = new Set([
   "shortcuts", "flows", "extraction", "templates", "profiles",
-  "import-export", "log", "settings",
+  "import-export", "log", "settings", "quick-run",
 ]);
 const ADVANCED_TABS: Set<TabId> = new Set([
   "scripts", "shortcuts", "flows", "log",
   "css-rules", "network-rules", "extraction", "domains",
-  "profiles", "templates", "import-export", "health", "settings",
+  "profiles", "templates", "import-export", "health", "settings", "quick-run",
 ]);
 
 function isTabVisibleInMode(tab: TabId, mode: "basic" | "advanced"): boolean {
@@ -21,8 +21,8 @@ function isTabVisibleInMode(tab: TabId, mode: "basic" | "advanced"): boolean {
 }
 
 const DEFAULT_TAB_FOR_MODE: Record<"basic" | "advanced", TabId> = {
-  basic: "templates",
-  advanced: "scripts",
+  basic: "quick-run",
+  advanced: "quick-run",
 };
 
 const SESSION_TAB_KEY = "_activeTab";
@@ -35,6 +35,7 @@ function mergeWithDefaults(stored: Partial<Settings>): Settings {
     ui: { ...DEFAULT_SETTINGS.ui, ...stored.ui },
     execution: { ...DEFAULT_SETTINGS.execution, ...stored.execution },
     feedback: { ...DEFAULT_SETTINGS.feedback, ...stored.feedback },
+    quickRun: { ...DEFAULT_SETTINGS.quickRun, ...stored.quickRun },
   };
 }
 
@@ -51,7 +52,8 @@ export type TabId =
   | "profiles"
   | "templates"
   | "import-export"
-  | "health";
+  | "health"
+  | "quick-run";
 
 interface AppState {
   /** Currently active bottom tab */
@@ -82,7 +84,7 @@ export const useAppStore = create<AppState>((set, get) => {
   });
 
   return {
-    activeTab: "scripts",
+    activeTab: "quick-run",
     settings: DEFAULT_SETTINGS,
     counts: {
       scripts: 0,
@@ -168,6 +170,7 @@ export const useAppStore = create<AppState>((set, get) => {
           ui: { ...settings.ui, ...partial.ui },
           execution: { ...settings.execution, ...partial.execution },
           feedback: { ...settings.feedback, ...partial.feedback },
+          quickRun: { ...settings.quickRun, ...partial.quickRun },
         };
         // If viewMode changed, reset active tab if it's not visible in the new mode
         const newMode = merged.ui.viewMode;

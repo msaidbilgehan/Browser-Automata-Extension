@@ -4,6 +4,7 @@ import { useAppStore } from "./stores/app-store";
 import { Header } from "./components/Header";
 import { TabBar } from "./components/TabBar";
 import { ViewRouter } from "./components/ViewRouter";
+import { QuickRunBar } from "./components/QuickRunBar";
 
 export function App() {
   useInitialize();
@@ -12,6 +13,7 @@ export function App() {
   const activeTab = useAppStore((s) => s.activeTab);
   const loading = useAppStore((s) => s.loading);
   const initialized = useAppStore((s) => s.initialized);
+  const showQuickRunInPopup = useAppStore((s) => s.settings.quickRun.showInPopup);
 
   if (!initialized && loading) {
     return (
@@ -27,6 +29,7 @@ export function App() {
       <main className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3">
         <ViewRouter activeTab={activeTab} />
       </main>
+      {showQuickRunInPopup ? <QuickRunBar /> : null}
       <TabBar />
     </div>
   );

@@ -81,6 +81,7 @@ export interface Shortcut {
   enabled: boolean;
   profileId: EntityId | null;
   meta: EntityMeta;
+  templateId?: string;
 }
 
 /** CSS injection rule */
@@ -93,6 +94,7 @@ export interface CSSRule {
   injectAt: "document_start" | "document_idle";
   profileId: EntityId | null;
   meta: EntityMeta;
+  templateId?: string;
 }
 
 /** Profile for grouping automations */
@@ -148,6 +150,7 @@ export interface Flow {
   profileId: EntityId | null;
   nodes: FlowNode[];
   meta: EntityMeta;
+  templateId?: string;
 }
 
 /** Transform applied to an extracted field value after extraction */
@@ -197,6 +200,7 @@ export interface ExtractionRule {
   /** Key combo for shortcut trigger — auto-manages a linked Shortcut entity */
   shortcutKeyCombo?: KeyCombo;
   meta: EntityMeta;
+  templateId?: string;
 }
 
 /** Template category */
@@ -305,6 +309,7 @@ export interface NetworkRule {
   resourceTypes?: string[];
   action: NetworkRuleAction;
   meta: EntityMeta;
+  templateId?: string;
 }
 
 /** Clipboard history entry (F16n) */
@@ -414,6 +419,35 @@ export interface FallbackSelectors {
   fallbacks: string[];
   lastTested?: ISOTimestamp;
   stale: boolean;
+}
+
+// ─── Quick Run ──────────────────────────────────────────────────────────────
+
+/** The kind of runnable entity a quick action refers to */
+export type QuickRunTargetType = "script" | "flow" | "extraction" | "form_fill";
+
+/** Reference to the runnable entity — discriminated union */
+export type QuickRunTarget =
+  | { type: "script"; scriptId: EntityId }
+  | { type: "flow"; flowId: EntityId }
+  | { type: "extraction"; extractionRuleId: EntityId }
+  | { type: "form_fill"; formFillProfileId: EntityId };
+
+/** A single action slot in the Quick Run bar */
+export interface QuickRunAction {
+  id: EntityId;
+  name: string;
+  /** Optional lucide icon name — defaults by target type if omitted */
+  icon?: string | undefined;
+  /** Optional hex color for the button */
+  color?: string | undefined;
+  target: QuickRunTarget;
+  /** URL scoping — only show this action when the current page matches */
+  scope: UrlPattern;
+  /** Ordering position in the bar */
+  order: number;
+  enabled: boolean;
+  meta: EntityMeta;
 }
 
 /** Strategy label for a selector alternative */

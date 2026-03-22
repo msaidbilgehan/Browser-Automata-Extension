@@ -10,6 +10,7 @@ import { TemplatesView } from "./views/TemplatesView";
 import { ImportExportView } from "./views/ImportExportView";
 import { HealthView } from "./views/HealthView";
 import { DomainsView } from "./views/DomainsView";
+import { QuickRunView } from "./views/QuickRunView";
 
 // Lazy-load CodeMirror-heavy views to reduce initial chunk size
 const ScriptsView = lazy(() =>
@@ -58,6 +59,8 @@ function ActiveView({ tab }: { tab: TabId }) {
       return <ImportExportView />;
     case "health":
       return <HealthView />;
+    case "quick-run":
+      return <QuickRunView />;
   }
 }
 

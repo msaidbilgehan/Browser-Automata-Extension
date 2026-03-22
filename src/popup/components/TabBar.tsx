@@ -5,6 +5,7 @@ import {
   ScrollText,
   MoreHorizontal,
   Package,
+  Zap,
 } from "lucide-react";
 import { useAppStore } from "../stores/app-store";
 import type { TabId } from "../stores/app-store";
@@ -19,6 +20,7 @@ interface TabItem {
 /* ── Tab definitions per view mode ── */
 
 const BASIC_PRIMARY: TabItem[] = [
+  { id: "quick-run", label: "Quick Run", icon: <Zap size={16} /> },
   { id: "templates", label: "Templates", icon: <Package size={16} /> },
   { id: "shortcuts", label: "Keys", icon: <Keyboard size={16} /> },
   { id: "flows", label: "Flows", icon: <GitBranch size={16} /> },
@@ -33,6 +35,7 @@ const BASIC_MORE: TabItem[] = [
 ];
 
 const ADVANCED_PRIMARY: TabItem[] = [
+  { id: "quick-run", label: "Quick Run", icon: <Zap size={16} /> },
   { id: "scripts", label: "Scripts", icon: <FileCode size={16} /> },
   { id: "shortcuts", label: "Keys", icon: <Keyboard size={16} /> },
   { id: "flows", label: "Flows", icon: <GitBranch size={16} /> },

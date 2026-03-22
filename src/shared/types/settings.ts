@@ -1,4 +1,7 @@
-import type { EntityId } from "./entities";
+import type { EntityId, KeyCombo } from "./entities";
+
+/** Quick Run bar position anchor */
+export type QuickRunBarPosition = "top-right" | "top-left" | "bottom-right" | "bottom-left";
 
 export interface Settings {
   globalEnabled: boolean;
@@ -24,6 +27,18 @@ export interface Settings {
     toastDismissMode: "delay" | "key_release";
     toastDurationMs: number;
     highlightEnabled: boolean;
+  };
+  quickRun: {
+    barEnabled: boolean;
+    /** KeyCombo for toggling the in-page floating bar visibility */
+    toggleShortcut: KeyCombo | null;
+    /** Whether the popup shows the docked Quick Run bar */
+    showInPopup: boolean;
+    /** Bar position preference: which edge to dock to in-page */
+    barPosition: QuickRunBarPosition;
+    /** Persisted drag offset from the default anchor (pixels) */
+    barOffsetX: number;
+    barOffsetY: number;
   };
 }
 
@@ -51,5 +66,13 @@ export const DEFAULT_SETTINGS: Settings = {
     toastDismissMode: "key_release",
     toastDurationMs: 3000,
     highlightEnabled: true,
+  },
+  quickRun: {
+    barEnabled: true,
+    toggleShortcut: { key: "q", ctrlKey: false, shiftKey: false, altKey: true, metaKey: false },
+    showInPopup: true,
+    barPosition: "bottom-right",
+    barOffsetX: 0,
+    barOffsetY: 0,
   },
 };

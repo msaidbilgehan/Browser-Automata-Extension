@@ -32,7 +32,7 @@ import {
 import { importConfig, exportConfig, filterExportBySection } from "./services/import-export";
 import { resolveDependencies } from "./services/dependency-resolver";
 import { detectImportConflicts, importSelective } from "./services/import-conflict-detector";
-import { installTemplate, updateTemplate, getInstalledTemplates } from "./services/template-installer";
+import { installTemplate, updateTemplate, uninstallTemplate, resetTemplate, getInstalledTemplates, computeLocalHash, hasTemplateEntities } from "./services/template-installer";
 import { fetchTemplateCatalog, fetchSingleTemplate } from "./services/template-registry";
 import { handleVariableSave, handleVariableDelete } from "./handlers/variable-handler";
 import { handleLibrarySave, handleLibraryDelete } from "./handlers/library-handler";
@@ -46,8 +46,16 @@ import {
   handleNotificationRuleSave,
   handleNotificationRuleDelete,
 } from "./handlers/notification-handler";
+import {
+  handleQuickRunSave,
+  handleQuickRunDelete,
+  handleQuickRunReorder,
+  handleQuickRunExecute,
+  handleQuickRunGetMatching,
+} from "./handlers/quick-run-handler";
+import { pushQuickRunActionsToTab } from "./services/quick-run-manager";
 import { getHealthMetrics } from "./services/health-monitor";
-import type { Message } from "@/shared/types/messages";
+import type { Message, TemplateStatus } from "@/shared/types/messages";
 
 /**
  * Route an incoming message to the appropriate handler.
@@ -123,11 +131,12 @@ async function dispatchMessage(
           // Retries only need to re-push shortcuts — skip scripts, CSS, and extractions
           await pushShortcutsToTab(tabId, message.url);
         } else {
-          // First load: inject scripts, CSS, push shortcuts, and run page_load extractions
+          // First load: inject scripts, CSS, push shortcuts, quick run actions, and run page_load extractions
           await Promise.all([
             injectPageLoadScripts(tabId, message.url),
             injectMatchingCSS(tabId, message.url),
             pushShortcutsToTab(tabId, message.url),
+            pushQuickRunActionsToTab(tabId, message.url),
             runPageLoadExtractions(tabId, message.url),
           ]);
         }
@@ -204,6 +213,12 @@ async function dispatchMessage(
     case "UPDATE_TEMPLATE":
       return updateTemplate(message.templateId);
 
+    case "UNINSTALL_TEMPLATE":
+      return uninstallTemplate(message.templateId);
+
+    case "RESET_TEMPLATE":
+      return resetTemplate(message.templateId);
+
     case "GET_INSTALLED_TEMPLATES":
       return { installed: await getInstalledTemplates() };
 
@@ -212,6 +227,60 @@ async function dispatchMessage(
 
     case "FETCH_SINGLE_TEMPLATE":
       return fetchSingleTemplate(message.slug);
+
+    case "GET_TEMPLATE_STATUSES": {
+      const installed = await getInstalledTemplates();
+      const statuses: Record<string, TemplateStatus> = {};
+
+      await Promise.all(
+        message.queries.map(async (query) => {
+          const record = installed[query.templateId];
+          if (!record) {
+            statuses[query.templateId] = "not_installed";
+            return;
+          }
+
+          // If all entities were manually deleted outside the templates section,
+          // auto-cleanup the installation record and treat as not installed.
+          const entitiesExist = await hasTemplateEntities(query.templateId);
+          if (!entitiesExist) {
+            await uninstallTemplate(query.templateId);
+            statuses[query.templateId] = "not_installed";
+            return;
+          }
+
+          const remoteHash = query.remoteContentHash;
+          const installedHash = record.contentHash;
+
+          // Compute local hash to detect local modifications (always, even without remote hash)
+          const localHash = installedHash
+            ? await computeLocalHash(query.templateId, {
+                name: query.templateName,
+                description: query.templateDescription,
+                category: query.templateCategory,
+                tags: query.templateTags,
+                author: query.templateAuthor,
+              })
+            : undefined;
+          const localChanged = installedHash && localHash ? localHash !== installedHash : false;
+
+          // Cloud change detection requires both hashes
+          const cloudChanged = remoteHash && installedHash ? remoteHash !== installedHash : false;
+
+          if (cloudChanged && localChanged) {
+            statuses[query.templateId] = "update_and_modified";
+          } else if (cloudChanged) {
+            statuses[query.templateId] = "update_available";
+          } else if (localChanged) {
+            statuses[query.templateId] = "local_modified";
+          } else {
+            statuses[query.templateId] = "installed";
+          }
+        }),
+      );
+
+      return { statuses };
+    }
 
     // ─── Phase 4: Variable messages ────────────────────────────────────
     case "VARIABLE_SAVE":
@@ -250,6 +319,22 @@ async function dispatchMessage(
 
     case "NOTIFICATION_RULE_DELETE":
       return handleNotificationRuleDelete(message.ruleId);
+
+    // ─── Quick Run messages ─────────────────────────────────────────────
+    case "QUICK_RUN_SAVE":
+      return handleQuickRunSave(message.action);
+
+    case "QUICK_RUN_DELETE":
+      return handleQuickRunDelete(message.actionId);
+
+    case "QUICK_RUN_REORDER":
+      return handleQuickRunReorder(message.orderedIds);
+
+    case "QUICK_RUN_EXECUTE":
+      return handleQuickRunExecute(message.actionId);
+
+    case "QUICK_RUN_GET_MATCHING":
+      return handleQuickRunGetMatching(message.url);
 
     // ─── Phase 4: Health messages ───────────────────────────────────────
     case "GET_HEALTH": {
@@ -363,6 +448,7 @@ async function dispatchMessage(
     case "EXTRACT_DATA":
     case "TEST_SELECTOR":
     case "CLEAR_TEST_HIGHLIGHT":
+    case "UPDATE_QUICK_RUN_ACTIONS":
       // These are SW → content messages, not handled here
       return undefined;
 

@@ -19,6 +19,7 @@ const SW_TO_CONTENT_TYPES = new Set([
   "EXTRACT_DATA",
   "TEST_SELECTOR",
   "CLEAR_TEST_HIGHLIGHT",
+  "UPDATE_QUICK_RUN_ACTIONS",
 ]);
 
 /** Type guard: checks if a value is a service-worker-to-content message */
