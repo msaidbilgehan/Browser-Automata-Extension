@@ -1,7 +1,22 @@
 {
-  "video-navigator": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/video-navigator.json",
-  "element-hider": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/element-hider.json",
-  "dark-mode-injector": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/dark-mode-injector.json",
-  "cookie-banner-dismisser": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/cookie-banner-dismisser.json",
-  "auto-clicker": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/auto-clicker.json"
+  "video-navigator": {
+    "version": ">=0.2.1",
+    "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/video-navigator.json"
+  },
+  "element-hider": {
+    "version": ">=0.2.1",
+    "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/element-hider.json"
+  },
+  "dark-mode-injector": {
+    "version": ">=0.2.1",
+    "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/dark-mode-injector.json"
+  },
+  "cookie-banner-dismisser": {
+    "version": ">=0.2.1",
+    "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/cookie-banner-dismisser.json"
+  },
+  "auto-clicker": {
+    "version": ">=0.2.1",
+    "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/auto-clicker.json"
+  }
 }
