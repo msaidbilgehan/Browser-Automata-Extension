@@ -17,9 +17,11 @@ import type { InstalledTemplateRecord } from "@/shared/storage/keys";
 
 /**
  * Install entities from a resolved Template object.
+ * @param registryContentHash - The content hash from the remote registry (for cloud update detection)
  */
 async function installFromTemplate(
   template: Template,
+  registryContentHash?: string | undefined,
 ): Promise<{ ok: boolean; error?: string }> {
   const timestamp = now();
   const meta: EntityMeta = { createdAt: timestamp, updatedAt: timestamp };
@@ -163,7 +165,7 @@ async function installFromTemplate(
 
   // Compute content hash and track installed template
   const contentHash = await computeTemplateContentHash(template);
-  await trackInstalledTemplate(template.id, template.meta.templateVersion, timestamp, contentHash, template.name);
+  await trackInstalledTemplate(template.id, template.meta.templateVersion, timestamp, contentHash, template.name, registryContentHash);
 
   return { ok: true };
 }
@@ -176,7 +178,8 @@ async function trackInstalledTemplate(
   templateVersion: string,
   timestamp: ISOTimestamp,
   contentHash: string,
-  templateName?: string,
+  templateName?: string | undefined,
+  remoteContentHash?: string | undefined,
 ): Promise<void> {
   await localStore.update(
     "installedTemplates",
@@ -188,6 +191,7 @@ async function trackInstalledTemplate(
         installedAt: existing?.installedAt ?? timestamp,
         updatedAt: timestamp,
         contentHash,
+        remoteContentHash: remoteContentHash ?? existing?.remoteContentHash,
         templateName: templateName ?? existing?.templateName,
       };
       return { ...records, [templateId]: record };
@@ -317,12 +321,12 @@ async function removeTemplateEntities(templateId: string): Promise<void> {
  */
 async function resolveTemplate(
   templateId: string,
-): Promise<{ template: Template | null; error?: string }> {
+): Promise<{ template: Template | null; registryContentHash?: string | undefined; error?: string }> {
   const slug = templateId.startsWith("tpl-") ? templateId.slice(4) : templateId;
 
   const remote = await fetchSingleTemplate(slug);
   if (remote.ok && remote.template) {
-    return { template: remote.template };
+    return { template: remote.template, registryContentHash: remote.registryContentHash };
   }
 
   return { template: null, error: remote.error ?? "Template not found" };
@@ -339,7 +343,7 @@ export async function installTemplate(
   if (!resolved.template) {
     return { ok: false, error: resolved.error ?? "Template not found" };
   }
-  return installFromTemplate(resolved.template);
+  return installFromTemplate(resolved.template, resolved.registryContentHash);
 }
 
 /**
@@ -358,7 +362,7 @@ export async function updateTemplate(
   await removeTemplateEntities(templateId);
 
   // Install the new version
-  const result = await installFromTemplate(template);
+  const result = await installFromTemplate(template, resolved.registryContentHash);
   if (result.ok) {
     return { ok: true, newVersion: template.meta.templateVersion };
   }
@@ -382,7 +386,7 @@ export async function resetTemplate(
   }
 
   await removeTemplateEntities(templateId);
-  return installFromTemplate(resolved.template);
+  return installFromTemplate(resolved.template, resolved.registryContentHash);
 }
 
 /**

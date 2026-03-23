@@ -118,10 +118,11 @@ export async function fetchTemplateCatalog(): Promise<TemplateCatalogResponse> {
 
 /**
  * Fetch a single template by slug from the remote registry.
+ * Returns the template along with the registry's contentHash for update detection.
  */
 export async function fetchSingleTemplate(
   slug: string,
-): Promise<{ ok: boolean; template?: Template; error?: string }> {
+): Promise<{ ok: boolean; template?: Template; registryContentHash?: string | undefined; error?: string }> {
   try {
     const registry = await fetchRegistry();
     const entry = registry[slug];
@@ -143,7 +144,7 @@ export async function fetchSingleTemplate(
       return { ok: false, error: "Template file is empty" };
     }
 
-    return { ok: true, template };
+    return { ok: true, template, registryContentHash: entry.contentHash };
   } catch {
     return { ok: false, error: `Failed to fetch template "${slug}". Check your network connection.` };
   }

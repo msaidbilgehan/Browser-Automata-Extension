@@ -255,6 +255,8 @@ async function dispatchMessage(
 
           const remoteHash = query.remoteContentHash;
           const installedHash = record.contentHash;
+          // Use the stored registry hash for cloud comparison (immune to local vs remote hash computation differences)
+          const storedRemoteHash = record.remoteContentHash;
 
           // Compute local hash to detect local modifications (always, even without remote hash)
           const localHash = installedHash
@@ -268,8 +270,11 @@ async function dispatchMessage(
             : undefined;
           const localChanged = installedHash && localHash ? localHash !== installedHash : false;
 
-          // Cloud change detection requires both hashes
-          const cloudChanged = remoteHash && installedHash ? remoteHash !== installedHash : false;
+          // Cloud change detection: compare current registry hash against the one stored at install time.
+          // Falls back to comparing against the locally computed hash for backward compatibility
+          // with records that predate the remoteContentHash field.
+          const baseHash = storedRemoteHash ?? installedHash;
+          const cloudChanged = remoteHash && baseHash ? remoteHash !== baseHash : false;
 
           if (cloudChanged && localChanged) {
             statuses[query.templateId] = "update_and_modified";

@@ -24,8 +24,10 @@ export interface InstalledTemplateRecord {
   templateVersion: string;
   installedAt: ISOTimestamp;
   updatedAt: ISOTimestamp;
-  /** SHA-256 hash of the template content at install/update time */
+  /** SHA-256 hash of the template content at install/update time (locally computed) */
   contentHash?: string | undefined;
+  /** SHA-256 hash from the remote registry at install/update time (for cloud update detection) */
+  remoteContentHash?: string | undefined;
   /** Template display name (stored for showing removed templates) */
   templateName?: string | undefined;
 }
