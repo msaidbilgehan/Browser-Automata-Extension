@@ -71,7 +71,7 @@ function ensureStyle(): void {
       top: 12px !important;
       right: 12px !important;
       z-index: ${TIP_Z_INDEX} !important;
-      pointer-events: auto !important;
+      pointer-events: none !important;
       display: flex !important;
       flex-direction: column !important;
       gap: 6px !important;
@@ -93,6 +93,7 @@ function ensureStyle(): void {
     [${TIP_ATTR}][data-ba-visible] {
       opacity: 1 !important;
       transform: translateY(0) !important;
+      pointer-events: auto !important;
     }
     [${TIP_ATTR}] [data-ba-tip-title] {
       font-size: 10px !important;
