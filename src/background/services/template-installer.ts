@@ -463,11 +463,11 @@ export async function computeLocalHash(
   ]);
 
   // Filter entities belonging to this template, strip id/meta/templateId
-  const stripEntity = <T extends { id: unknown; meta: unknown; templateId?: unknown }>(
+  const stripEntity = <T extends { id: unknown; meta: unknown; templateId?: unknown; enabled?: unknown }>(
     entity: T,
-  ): Omit<T, "id" | "meta" | "templateId"> => {
-    const { id: _id, meta: _meta, templateId: _tid, ...rest } = entity;
-    return rest as Omit<T, "id" | "meta" | "templateId">;
+  ): Omit<T, "id" | "meta" | "templateId" | "enabled"> => {
+    const { id: _id, meta: _meta, templateId: _tid, enabled: _enabled, ...rest } = entity;
+    return rest as Omit<T, "id" | "meta" | "templateId" | "enabled">;
   };
 
   const tplScripts = Object.values(scripts)

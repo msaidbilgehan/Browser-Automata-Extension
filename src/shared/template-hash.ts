@@ -29,9 +29,25 @@ async function sha256Hex(input: string): Promise<string> {
 }
 
 /**
+ * Strip the `enabled` field from each entity in an array.
+ * The enabled/disabled toggle is a user-local preference and must not
+ * affect the content hash – otherwise toggling causes a false "modified" status.
+ */
+function stripEnabled<T>(entities: T[] | undefined): T[] | undefined {
+  if (!entities) return undefined;
+  return entities.map((e) => {
+    if (typeof e === "object" && e !== null && "enabled" in e) {
+      const { enabled: _, ...rest } = e as Record<string, unknown>;
+      return rest as T;
+    }
+    return e;
+  });
+}
+
+/**
  * Extract only the functional content fields from a template,
- * stripping volatile metadata (id, meta, timestamps) that don't
- * affect the installed entities.
+ * stripping volatile metadata (id, meta, timestamps) and the
+ * `enabled` toggle that don't affect the installed entities.
  */
 function extractContentPayload(template: Template): Record<string, unknown> {
   return {
@@ -40,12 +56,12 @@ function extractContentPayload(template: Template): Record<string, unknown> {
     category: template.category,
     tags: template.tags,
     author: template.author,
-    scripts: template.scripts,
-    shortcuts: template.shortcuts,
-    cssRules: template.cssRules,
-    flows: template.flows,
-    extractionRules: template.extractionRules,
-    networkRules: template.networkRules,
+    scripts: stripEnabled(template.scripts),
+    shortcuts: stripEnabled(template.shortcuts),
+    cssRules: stripEnabled(template.cssRules),
+    flows: stripEnabled(template.flows),
+    extractionRules: stripEnabled(template.extractionRules),
+    networkRules: stripEnabled(template.networkRules),
   };
 }
 

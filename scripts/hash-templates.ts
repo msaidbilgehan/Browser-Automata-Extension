@@ -41,6 +41,17 @@ interface TemplateData {
   networkRules?: unknown[];
 }
 
+function stripEnabled(entities: unknown[] | undefined): unknown[] | undefined {
+  if (!entities) return undefined;
+  return entities.map((e) => {
+    if (typeof e === "object" && e !== null && "enabled" in e) {
+      const { enabled: _, ...rest } = e as Record<string, unknown>;
+      return rest;
+    }
+    return e;
+  });
+}
+
 function computeHash(template: TemplateData): string {
   const payload = {
     name: template.name,
@@ -48,12 +59,12 @@ function computeHash(template: TemplateData): string {
     category: template.category,
     tags: template.tags,
     author: template.author,
-    scripts: template.scripts,
-    shortcuts: template.shortcuts,
-    cssRules: template.cssRules,
-    flows: template.flows,
-    extractionRules: template.extractionRules,
-    networkRules: template.networkRules,
+    scripts: stripEnabled(template.scripts),
+    shortcuts: stripEnabled(template.shortcuts),
+    cssRules: stripEnabled(template.cssRules),
+    flows: stripEnabled(template.flows),
+    extractionRules: stripEnabled(template.extractionRules),
+    networkRules: stripEnabled(template.networkRules),
   };
   const canonical = JSON.stringify(payload, sortedReplacer);
   return createHash("sha256").update(canonical).digest("hex");

@@ -2,79 +2,79 @@
   "video-navigator": {
     "version": ">=0.2.1",
     "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/video-navigator.json",
-    "contentHash": "4c18bf46f94aa6000e7152257a12969813eaf6d69469ad6a24f00aee8d4c709d",
+    "contentHash": "d59c06d3df0ed3526229812656a79b8cff71f6caace49393d31f6d0179ce5952",
     "updatedAt": "2026-03-22T00:00:00.000Z"
   },
   "element-hider": {
     "version": ">=0.2.1",
     "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/element-hider.json",
-    "contentHash": "b370247a8c72bbcce5a3568915d41998f15b3e35ea740184262e8d3d1a8d7f92",
+    "contentHash": "a2b6c0e7b51b8ff2780b86c05410daab24c602330f63823c4273213c99c7438a",
     "updatedAt": "2026-03-22T00:00:00.000Z"
   },
   "dark-mode-injector": {
     "version": ">=0.2.1",
     "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/dark-mode-injector.json",
-    "contentHash": "cada4643ad8f242dc82ec456d6069302fef82eba911d2289bfcf32b1b142b158",
+    "contentHash": "b514eddc02405e97198f6c389c6185be80db8ddd78b0113d9881919c9ec27a52",
     "updatedAt": "2026-03-22T00:00:00.000Z"
   },
   "cookie-banner-dismisser": {
     "version": ">=0.2.1",
     "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/cookie-banner-dismisser.json",
-    "contentHash": "d1de08c9c2b94b2a4d68007324c38ec19049a2723735acf0f79340f54fcc3842",
+    "contentHash": "53c86c7cfb6b79eebc1da709fc53e80f2d8d79d00a7639e82b92659978419a0a",
     "updatedAt": "2026-03-22T00:00:00.000Z"
   },
   "auto-clicker": {
     "version": ">=0.2.1",
     "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/auto-clicker.json",
-    "contentHash": "225f4a173dc62007e8e50f839d302d5d3f237d77183fb38d132793d76ac0d6c9",
+    "contentHash": "374d5df16352342b464a651d6d73332f4155c4daebf67ee879381cf9d8751771",
     "updatedAt": "2026-03-22T00:00:00.000Z"
   },
   "auto-skip-youtube-ads": {
     "version": ">=0.2.1",
     "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/auto-skip-youtube-ads.json",
-    "contentHash": "2a395751e6bc6217445a83ee21c2d1f011d122ea6253a4cb05b1ee5824c97cd9",
+    "contentHash": "c1d6f443f6669720f75f0ebc457ba2007b5e204261454ee7057fd6dc4b4b7b73",
     "updatedAt": "2026-03-22T00:00:00.000Z"
   },
   "github-directory-download": {
     "version": ">=0.2.1",
     "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/github-directory-download.json",
-    "contentHash": "a9958e108efb16cb6dc6c14eaf5f7c28728f6fc3a0c72d956428521d2d9953f8",
+    "contentHash": "af74c192af530b42ef76ab6726df1993be37b8c399cc0a75da0169ee17e199a9",
     "updatedAt": "2026-03-22T00:00:00.000Z"
   },
   "twitter-x-media-downloader": {
     "version": ">=0.2.1",
     "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/twitter-x-media-downloader.json",
-    "contentHash": "a5dfc10a764ff261d01936d937ce193b9361eefee489faa91c5206a2b2daacfb",
+    "contentHash": "8a56425341ea8dfe854b26d6fc025b2fadef844abdd05717ffc4a610b32b0436",
     "updatedAt": "2026-03-22T00:00:00.000Z"
   },
   "remove-web-limits": {
     "version": ">=0.2.1",
     "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/remove-web-limits.json",
-    "contentHash": "b452d5256fcf0f4f61da2d68c67fdfe7ec18b011b95e55fb41c637d23b33bb96",
+    "contentHash": "be7f6207be23497067f76b189f99415f32515d04ca1dee2e57fa41efafb873ff",
     "updatedAt": "2026-03-22T00:00:00.000Z"
   },
   "instagram-download-button": {
     "version": ">=0.2.1",
     "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/instagram-download-button.json",
-    "contentHash": "ed98343610ae7b35941bcc6bc4084feb3d87dee10ae881d5dbbb0c1b07f3599d",
+    "contentHash": "97a4463fcec58740db83b6b21cb977df81829d15790db2d5170a1b3deba59d93",
     "updatedAt": "2026-03-22T00:00:00.000Z"
   },
   "open-movie-search": {
     "version": ">=0.2.1",
     "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/open-movie-search.json",
-    "contentHash": "fa63dc0fbaf81cfed35172aa89da1b8476a9626acc55798452482e9c4d02a518",
+    "contentHash": "de92fa85d0259b8bda2692a87e00fc874d81f46b25f368623c2300b90df25e99",
     "updatedAt": "2026-03-22T00:00:00.000Z"
   },
   "change-font": {
     "version": ">=0.2.1",
     "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/change-font.json",
-    "contentHash": "1c3215110a47928e83ed0c64a8135a5c559a6c7cfb021bf2002382ffdf76bdb4",
+    "contentHash": "f89d3214208de65ba88069f2cdee8ecb4ca7ff8fda7853e8bdc90a9d1e5059ae",
     "updatedAt": "2026-03-22T00:00:00.000Z"
   },
   "currency-converter": {
     "version": ">=0.2.1",
     "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/currency-converter.json",
-    "contentHash": "e1ff7b22f3059b3207f0124d01c1d21293386fb15edb13654a2f496bf9a16228",
+    "contentHash": "3b0a9b980625e037e64642b1a5030073fc00f36331564c813d8218622dd119c4",
     "updatedAt": "2026-03-22T00:00:00.000Z"
   }
 }
