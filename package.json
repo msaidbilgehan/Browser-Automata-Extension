@@ -1,7 +1,7 @@
 {
   "name": "browser-automata",
   "private": true,
-  "version": "0.2.6",
+  "version": "0.2.7",
   "type": "module",
   "description": "Power-tool-first Chrome extension for browser automation",
   "scripts": {

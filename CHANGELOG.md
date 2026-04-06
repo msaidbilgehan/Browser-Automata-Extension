@@ -4,6 +4,17 @@ All notable changes to Browser Automata are documented in this file.
 
 ---
 
+## v0.2.7 — 2026-04-06
+
+> Privacy policy for Chrome Web Store compliance with in-app viewer.
+
+### New Features
+
+- **Privacy Policy** — Added `PRIVACY_POLICY.md` for Chrome Web Store compliance and GitHub hosting. Covers data storage, permissions, network requests, and user control.
+- **Privacy Policy View** — New in-app privacy policy page accessible from Settings, with a "View on GitHub" link, styled permissions table, and full policy content rendered in the extension UI.
+
+---
+
 ## v0.2.6 — 2026-03-22
 
 > Backend and UI performance optimizations, template management improvements, and build fixes.

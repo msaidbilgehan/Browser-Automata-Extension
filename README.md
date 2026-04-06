@@ -4,7 +4,7 @@
 
 Wire keyboard shortcuts to page elements, execute JavaScript on any domain, extract structured data, chain multi-step flows, inject custom CSS, intercept network requests — all from a compact popup UI. Pre-built templates lower the entry barrier for non-technical users, but the engine never constrains power users.
 
-> **Status:** v0.2.6 · Chrome Extension (Manifest V3) · Private License
+> **Status:** v0.2.7 · Chrome Extension (Manifest V3) · Private License
 
 ---
 
@@ -23,6 +23,7 @@ Wire keyboard shortcuts to page elements, execute JavaScript on any domain, extr
 - [Testing](#testing)
 - [Contributing](#contributing)
 - [Support](#support)
+- [Privacy Policy](#privacy-policy)
 - [License](#license)
 
 ---
@@ -476,7 +477,7 @@ browser-automata/
 │   │   │   ├── TabBar.tsx       # Bottom navigation with keyboard nav + ARIA
 │   │   │   ├── QuickRunBar.tsx   # Quick-action buttons in popup
 │   │   │   ├── ViewRouter.tsx   # Shared lazy-loaded view routing (popup + options)
-│   │   │   ├── views/           # 14 tab panels (Quick Run, Scripts, Shortcuts, Flows, ...)
+│   │   │   ├── views/           # 15 tab panels (Quick Run, Scripts, Shortcuts, Flows, ...)
 │   │   │   ├── editor/          # CodeMirror wrapper, selector inputs
 │   │   │   │   └── flow-nodes/  # Split FlowNodeEditor sub-components (7 files)
 │   │   │   └── ui/              # Shared primitives (Button, Input, Toggle, ...)
@@ -512,7 +513,8 @@ browser-automata/
 ├── vitest.config.ts             # Test configuration
 ├── tsconfig.json                # TypeScript strict configuration
 ├── eslint.config.ts             # Linting rules
-└── package.json                 # Scripts and dependencies
+├── package.json                 # Scripts and dependencies
+└── PRIVACY_POLICY.md            # Chrome Web Store privacy policy
 ```
 
 ---
@@ -619,6 +621,14 @@ npm run test         # All tests pass
 If you find Browser Automata useful, consider supporting its development:
 
 [![Open Collective](https://img.shields.io/badge/Open%20Collective-Donate-blue?logo=opencollective)](https://opencollective.com/browser-automata-extension)
+
+---
+
+## Privacy Policy
+
+Browser Automata is privacy-focused. All user data is stored locally on your device — no personal data is collected, transmitted, or shared with any third party. The only network request is an optional read-only fetch to GitHub for the template registry.
+
+Read the full [Privacy Policy](PRIVACY_POLICY.md).
 
 ---
 
