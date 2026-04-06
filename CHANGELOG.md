@@ -13,6 +13,10 @@ All notable changes to Browser Automata are documented in this file.
 - **Privacy Policy** — Added `PRIVACY_POLICY.md` for Chrome Web Store compliance and GitHub hosting. Covers data storage, permissions, network requests, and user control.
 - **Privacy Policy View** — New in-app privacy policy page accessible from Settings, with a "View on GitHub" link, styled permissions table, and full policy content rendered in the extension UI.
 
+### Documentation
+
+- **Open Collective Widgets** — Added donate button, sponsors, backers, and contributors widgets to the README Support section with links to the Open Collective page.
+
 ---
 
 ## v0.2.6 — 2026-03-22

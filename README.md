@@ -622,6 +622,28 @@ If you find Browser Automata useful, consider supporting its development:
 
 [![Open Collective](https://img.shields.io/badge/Open%20Collective-Donate-blue?logo=opencollective)](https://opencollective.com/browser-automata-extension)
 
+### Donate
+
+<a href="https://opencollective.com/browser-automata-extension/donate" target="_blank">
+  <img src="https://opencollective.com/browser-automata-extension/donate/button@2x.png?color=blue" width="300" alt="Donate to Browser Automata on Open Collective" />
+</a>
+
+### Sponsors
+
+Support this project by becoming a sponsor. Your logo will show up here with a link to your website.
+
+<a href="https://opencollective.com/browser-automata-extension#sponsor"><img src="https://opencollective.com/browser-automata-extension/sponsors.svg?width=890" alt="Sponsors on Open Collective" /></a>
+
+### Backers
+
+Thank you to all our backers!
+
+<a href="https://opencollective.com/browser-automata-extension#backer"><img src="https://opencollective.com/browser-automata-extension/backers.svg?width=890" alt="Backers on Open Collective" /></a>
+
+### Contributors
+
+<a href="https://opencollective.com/browser-automata-extension#contributors"><img src="https://opencollective.com/browser-automata-extension/contributors.svg?width=890" alt="Contributors on Open Collective" /></a>
+
 ---
 
 ## Privacy Policy
