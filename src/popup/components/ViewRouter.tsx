@@ -11,6 +11,7 @@ import { ImportExportView } from "./views/ImportExportView";
 import { HealthView } from "./views/HealthView";
 import { DomainsView } from "./views/DomainsView";
 import { QuickRunView } from "./views/QuickRunView";
+import { PrivacyPolicyView } from "./views/PrivacyPolicyView";
 
 // Lazy-load CodeMirror-heavy views to reduce initial chunk size
 const ScriptsView = lazy(() =>
@@ -61,6 +62,8 @@ const ActiveView = memo(function ActiveView({ tab }: { tab: TabId }) {
       return <HealthView />;
     case "quick-run":
       return <QuickRunView />;
+    case "privacy-policy":
+      return <PrivacyPolicyView />;
   }
 });
 

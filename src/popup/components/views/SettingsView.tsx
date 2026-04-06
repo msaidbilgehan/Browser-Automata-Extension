@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ShieldCheck } from "lucide-react";
 import { useAppStore } from "../../stores/app-store";
 import { GeneralSettings } from "../settings/GeneralSettings";
 import { ExecutionSettings } from "../settings/ExecutionSettings";
@@ -36,6 +36,17 @@ export function SettingsView() {
       <QuickRunSettings settings={settings} updateSettings={updateSettings} />
       <QuickTipSettings settings={settings} updateSettings={updateSettings} />
       <ExportImportSettings />
+
+      <div className="border-border border-t pt-4">
+        <button
+          type="button"
+          onClick={() => { setActiveTab("privacy-policy"); }}
+          className="text-text-muted hover:text-active flex items-center gap-1.5 text-xs transition-colors"
+        >
+          <ShieldCheck size={14} />
+          Privacy Policy
+        </button>
+      </div>
     </div>
   );
 }

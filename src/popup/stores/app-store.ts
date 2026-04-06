@@ -53,7 +53,8 @@ export type TabId =
   | "templates"
   | "import-export"
   | "health"
-  | "quick-run";
+  | "quick-run"
+  | "privacy-policy";
 
 interface AppState {
   /** Currently active bottom tab */
