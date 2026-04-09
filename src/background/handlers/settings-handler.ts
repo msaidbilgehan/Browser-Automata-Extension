@@ -15,6 +15,7 @@ export async function handleSettingsUpdate(partial: Partial<Settings>): Promise<
     execution: { ...current.execution, ...partial.execution },
     feedback: { ...current.feedback, ...partial.feedback },
     quickRun: { ...current.quickRun, ...partial.quickRun },
+    notifications: { ...current.notifications, ...partial.notifications },
   };
 
   await syncStore.set("settings", updated);

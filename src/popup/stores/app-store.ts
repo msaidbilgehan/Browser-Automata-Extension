@@ -6,11 +6,11 @@ import { sendToBackground } from "@/shared/messaging";
 import { onSyncStorageChange } from "@/shared/storage";
 
 /* ── Tabs visible per view mode ── */
-const BASIC_TABS: Set<TabId> = new Set([
+const BASIC_TABS = new Set<TabId>([
   "shortcuts", "flows", "extraction", "templates", "profiles",
   "import-export", "log", "settings", "quick-run",
 ]);
-const ADVANCED_TABS: Set<TabId> = new Set([
+const ADVANCED_TABS = new Set<TabId>([
   "scripts", "shortcuts", "flows", "log",
   "css-rules", "network-rules", "extraction", "domains",
   "profiles", "templates", "import-export", "health", "settings", "quick-run",
@@ -36,6 +36,7 @@ function mergeWithDefaults(stored: Partial<Settings>): Settings {
     execution: { ...DEFAULT_SETTINGS.execution, ...stored.execution },
     feedback: { ...DEFAULT_SETTINGS.feedback, ...stored.feedback },
     quickRun: { ...DEFAULT_SETTINGS.quickRun, ...stored.quickRun },
+    notifications: { ...DEFAULT_SETTINGS.notifications, ...stored.notifications },
   };
 }
 
@@ -172,6 +173,7 @@ export const useAppStore = create<AppState>((set, get) => {
           execution: { ...settings.execution, ...partial.execution },
           feedback: { ...settings.feedback, ...partial.feedback },
           quickRun: { ...settings.quickRun, ...partial.quickRun },
+          notifications: { ...settings.notifications, ...partial.notifications },
         };
         // If viewMode changed, reset active tab if it's not visible in the new mode
         const newMode = merged.ui.viewMode;

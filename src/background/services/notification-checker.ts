@@ -1,6 +1,7 @@
 import { localStore } from "@/shared/storage";
 import { DEEP_QUERY_SNIPPET } from "@/shared/deep-query-snippet";
 import type { NotificationRule } from "@/shared/types/entities";
+import { isNotificationsEnabled } from "./error-surfacer";
 
 /**
  * Alarm name prefix for notification rules.
@@ -66,8 +67,11 @@ function scopeToQueryUrl(rule: NotificationRule): string {
  * Check all enabled notification rules: query matching tabs,
  * inject a condition-check script, and fire chrome.notifications
  * when the condition is met.
+ * Skips entirely when the global notifications toggle is off.
  */
 export async function checkNotificationRules(): Promise<void> {
+  if (!(await isNotificationsEnabled())) return;
+
   const rulesMap = (await localStore.get("notificationRules")) ?? {};
   const enabledRules = Object.values(rulesMap).filter((r) => r.enabled);
 
@@ -108,7 +112,7 @@ async function checkSingleRule(rule: NotificationRule): Promise<void> {
       if (conditionMet) {
         chrome.notifications.create(`notification-rule:${rule.id}`, {
           type: "basic",
-          iconUrl: chrome.runtime.getURL("icons/icon-48.png"),
+          iconUrl: chrome.runtime.getURL("src/assets/icons/icon-48.png"),
           title: rule.notification.title,
           message: rule.notification.message,
           silent: !rule.notification.sound,

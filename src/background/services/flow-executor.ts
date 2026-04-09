@@ -1,5 +1,6 @@
 import { localStore } from "@/shared/storage";
 import { appendLogEntry } from "@/background/handlers/log-handler";
+import { notifyError } from "./error-surfacer";
 import { executeScript } from "./script-manager";
 import { DEEP_QUERY_SNIPPET } from "@/shared/deep-query-snippet";
 import { cspSafeExecExpression, cspSafeExecStatements } from "@/shared/csp-safe-eval";
@@ -55,7 +56,7 @@ interface FlowContext {
 }
 
 /** O(1) node-to-step index lookup, built once per flow run */
-let stepIndexMap: Map<string, number> = new Map();
+let stepIndexMap = new Map<string, number>();
 
 // ─── Tab helpers ─────────────────────────────────────────────────────────────
 
@@ -189,6 +190,14 @@ export async function executeFlow(
       message: `Flow "${flow.name}" failed`,
       error: { name: "FlowExecutionError", message: errorMessage },
     });
+
+    if (flow.notifyOnError) {
+      await notifyError(
+        `Flow Error: ${flow.name || "Untitled"}`,
+        errorMessage,
+      );
+    }
+
     return { ok: false, error: errorMessage };
   } finally {
     runningFlows.delete(flowId);
@@ -586,7 +595,7 @@ async function injectAction(tabId: number, code: string): Promise<void> {
 }
 
 /** O(1) node lookup by ID, built once per flow run */
-let nodeMap: Map<string, FlowNode> = new Map();
+let nodeMap = new Map<string, FlowNode>();
 
 async function executeCondition(
   flow: Flow,

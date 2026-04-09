@@ -57,6 +57,8 @@ export interface Script {
   executionWorld: "ISOLATED" | "MAIN";
   runAt: "document_start" | "document_idle" | "document_end";
   enabled: boolean;
+  /** Show a Chrome notification when this script errors */
+  notifyOnError?: boolean;
   priority: number;
   profileId: EntityId | null;
   eventConfig?: {
@@ -152,6 +154,8 @@ export interface Flow {
   description: string;
   scope: UrlPattern;
   enabled: boolean;
+  /** Show a Chrome notification when this flow errors */
+  notifyOnError?: boolean;
   profileId: EntityId | null;
   nodes: FlowNode[];
   meta: EntityMeta;

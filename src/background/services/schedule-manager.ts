@@ -1,6 +1,7 @@
 import { localStore, syncStore } from "@/shared/storage";
 import { executeScript, getMatchingScripts } from "./script-manager";
 import { appendLogEntry } from "@/background/handlers/log-handler";
+import { notifyError } from "./error-surfacer";
 import type { EntityId } from "@/shared/types/entities";
 
 const ALARM_PREFIX = "schedule:";
@@ -59,7 +60,13 @@ export async function handleAlarmFired(alarmName: string): Promise<void> {
     const matching = await getMatchingScripts(tab.url, "schedule");
     const found = matching.find((s) => s.id === scriptId);
     if (found) {
-      await executeScript(tab.id, found);
+      const result = await executeScript(tab.id, found);
+      if (!result.ok && found.notifyOnError) {
+        await notifyError(
+          `Script Error: ${found.name || "Untitled"}`,
+          result.error ?? "Unknown error",
+        );
+      }
     }
   }
 }

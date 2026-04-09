@@ -46,6 +46,10 @@ export interface Settings {
     /** Auto-dismiss timeout in milliseconds */
     timeoutMs: number;
   };
+  notifications: {
+    /** Global switch — when off, no Chrome notifications are fired */
+    enabled: boolean;
+  };
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -84,5 +88,8 @@ export const DEFAULT_SETTINGS: Settings = {
   quickTip: {
     enabled: true,
     timeoutMs: 3000,
+  },
+  notifications: {
+    enabled: false,
   },
 };

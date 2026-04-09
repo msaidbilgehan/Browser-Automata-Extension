@@ -6,6 +6,7 @@ import { LoggingSettings } from "../settings/LoggingSettings";
 import { FeedbackSettings } from "../settings/FeedbackSettings";
 import { QuickRunSettings } from "../settings/QuickRunSettings";
 import { QuickTipSettings } from "../settings/QuickTipSettings";
+import { NotificationSettings } from "../settings/NotificationSettings";
 import { ExportImportSettings } from "../settings/ExportImportSettings";
 
 export function SettingsView() {
@@ -35,6 +36,7 @@ export function SettingsView() {
       <FeedbackSettings settings={settings} updateSettings={updateSettings} />
       <QuickRunSettings settings={settings} updateSettings={updateSettings} />
       <QuickTipSettings settings={settings} updateSettings={updateSettings} />
+      <NotificationSettings settings={settings} updateSettings={updateSettings} />
       <ExportImportSettings />
 
       <div className="border-border border-t pt-4">

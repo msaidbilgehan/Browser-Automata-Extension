@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { FileCode, Plus, Play, Trash2, Copy, Loader2 } from "lucide-react";
+import { FileCode, Plus, Play, Trash2, Copy, Loader2, Info } from "lucide-react";
 import { SectionExportImport } from "../ui/SectionExportImport";
 import type { Script, UrlPattern } from "@/shared/types/entities";
 import type { ScriptRunResult } from "@/shared/types/script-run";
 import { generateId, now } from "@/shared/utils";
 import { useScriptsStore } from "../../stores/scripts-store";
+import { useAppStore } from "../../stores/app-store";
 import { useEditorDraft } from "../../hooks/use-editor-draft";
 import { removeDraft, loadAllDrafts } from "../../stores/editor-session";
 import { Toggle } from "../ui/Toggle";
@@ -32,6 +33,7 @@ function createNewScript(): Script {
     executionWorld: "ISOLATED",
     runAt: "document_idle",
     enabled: true,
+    notifyOnError: false,
     priority: 100,
     profileId: null,
     meta: { createdAt: timestamp, updatedAt: timestamp, version: 1, tags: [] },
@@ -69,6 +71,7 @@ function ScriptEditor({
   onBack: () => void;
 }) {
   const { save, remove, runNow } = useScriptsStore();
+  const globalNotificationsEnabled = useAppStore((s) => s.settings.notifications.enabled);
   const { draft, setDraft, isDirty, commitDraft, discardDraft } = useEditorDraft<Script>({
     tab: "scripts",
     entityId: initial.id,
@@ -223,6 +226,14 @@ function ScriptEditor({
             label="Enabled"
             size="sm"
           />
+          <Toggle
+            checked={draft.notifyOnError ?? false}
+            onChange={(notifyOnError) => {
+              patch("notifyOnError", notifyOnError);
+            }}
+            label="Notify on Error"
+            size="sm"
+          />
           {!isNew && (
             <Button variant="danger" onClick={() => void handleDelete()} className="gap-1">
               <Trash2 size={12} />
@@ -230,6 +241,15 @@ function ScriptEditor({
             </Button>
           )}
         </div>
+
+        {(draft.notifyOnError ?? false) && !globalNotificationsEnabled && (
+          <div className="bg-warning/10 text-warning flex items-start gap-1.5 rounded-md px-2.5 py-1.5">
+            <Info size={12} className="mt-0.5 shrink-0" />
+            <p className="text-[10px] leading-tight">
+              Global notifications are disabled. Enable them in <strong>Settings &gt; Notifications</strong> for this to take effect.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

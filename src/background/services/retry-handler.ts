@@ -53,7 +53,7 @@ export async function withRetry<T>(
   }
 
   if (fallback === "notify") {
-    notifyError("Retry exhausted", errorMessage);
+    await notifyError("Retry exhausted", errorMessage);
     return undefined;
   }
 

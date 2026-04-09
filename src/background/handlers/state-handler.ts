@@ -14,6 +14,9 @@ export async function handleGetState(): Promise<StateResponse> {
         ui: { ...DEFAULT_SETTINGS.ui, ...stored.ui },
         execution: { ...DEFAULT_SETTINGS.execution, ...stored.execution },
         feedback: { ...DEFAULT_SETTINGS.feedback, ...stored.feedback },
+        quickRun: { ...DEFAULT_SETTINGS.quickRun, ...stored.quickRun },
+        quickTip: { ...DEFAULT_SETTINGS.quickTip, ...stored.quickTip },
+        notifications: { ...DEFAULT_SETTINGS.notifications, ...stored.notifications },
       }
     : DEFAULT_SETTINGS;
   const scripts = (await localStore.get("scripts")) ?? {};

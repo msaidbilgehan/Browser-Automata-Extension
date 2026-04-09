@@ -17,7 +17,8 @@ import { runScriptNow, injectPageLoadScripts } from "./services/script-manager";
 import { pushShortcutsToTab, pushQuickTipToTab, handleShortcutExecution } from "./services/shortcut-manager";
 import { injectMatchingCSS } from "./services/css-injector";
 import { runPageLoadExtractions, openResultTab, testExtraction } from "./services/extraction-engine";
-import { showErrorBadge } from "./services/error-surfacer";
+import { showErrorBadge, notifyError } from "./services/error-surfacer";
+import { localStore } from "@/shared/storage";
 import { handleFlowSave, handleFlowDelete, handleFlowRunNow } from "./handlers/flow-handler";
 import {
   handleExtractionRuleSave,
@@ -99,6 +100,14 @@ async function dispatchMessage(
       const result = await runScriptNow(message.scriptId);
       if (!result.ok) {
         await showErrorBadge();
+        const scripts = (await localStore.get("scripts")) ?? {};
+        const script = scripts[message.scriptId];
+        if (script?.notifyOnError) {
+          await notifyError(
+            `Script Error: ${script.name || "Untitled"}`,
+            result.error ?? "Unknown error",
+          );
+        }
       }
       return result;
     }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { GitBranch, Plus, Play, Trash2, Copy } from "lucide-react";
+import { GitBranch, Plus, Play, Trash2, Copy, Info } from "lucide-react";
 import { SectionExportImport } from "../ui/SectionExportImport";
 import { create } from "zustand";
 import type { Flow, EntityId, UrlPattern } from "@/shared/types/entities";
@@ -18,6 +18,7 @@ import { ListHeader } from "../ui/ListHeader";
 import { UrlPatternInput } from "../editor/UrlPatternInput";
 import { FlowNodeEditor } from "../editor/FlowNodeEditor";
 import { FlowRunWidget } from "../widgets/FlowRunWidget";
+import { useAppStore } from "../../stores/app-store";
 
 // ─── Inline Flows Store ─────────────────────────────────────────────────────
 
@@ -95,6 +96,7 @@ function createNewFlow(): Flow {
     description: "",
     scope: { type: "global", value: "" },
     enabled: true,
+    notifyOnError: false,
     profileId: null,
     nodes: [],
     meta: { createdAt: timestamp, updatedAt: timestamp },
@@ -132,6 +134,7 @@ function FlowEditor({
   initialExpandedNodeId?: string | null | undefined;
 }) {
   const { save, remove, runNow } = useFlowsStore();
+  const globalNotificationsEnabled = useAppStore((s) => s.settings.notifications.enabled);
   const { draft, setDraft, isDirty, commitDraft, discardDraft } = useEditorDraft<Flow>({
     tab: "flows",
     entityId: initial.id,
@@ -278,7 +281,22 @@ function FlowEditor({
             label="Enabled"
             size="sm"
           />
+          <Toggle
+            checked={draft.notifyOnError ?? false}
+            onChange={(notifyOnError) => { patch("notifyOnError", notifyOnError); }}
+            label="Notify on Error"
+            size="sm"
+          />
         </div>
+
+        {(draft.notifyOnError ?? false) && !globalNotificationsEnabled && (
+          <div className="bg-warning/10 text-warning flex items-start gap-1.5 rounded-md px-2.5 py-1.5">
+            <Info size={12} className="mt-0.5 shrink-0" />
+            <p className="text-[10px] leading-tight">
+              Global notifications are disabled. Enable them in <strong>Settings &gt; Notifications</strong> for this to take effect.
+            </p>
+          </div>
+        )}
 
         {/* Node editor */}
         <FlowNodeEditor
