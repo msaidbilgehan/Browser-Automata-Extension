@@ -21,7 +21,7 @@
  */
 export async function cspSafeExecStatements(code: string): Promise<unknown> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-implied-eval
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval, @typescript-eslint/no-unsafe-call
     return new Function(code)() as unknown;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -55,7 +55,7 @@ export async function cspSafeExecStatements(code: string): Promise<unknown> {
       const res = w[key] as
         | { ok: boolean; v?: unknown; e?: string; s?: string }
         | undefined;
-      delete w[key];
+      Reflect.deleteProperty(w, key);
 
       if (!res || res.ok) {
         resolve(res?.v);
@@ -69,13 +69,13 @@ export async function cspSafeExecStatements(code: string): Promise<unknown> {
     el.onerror = () => {
       URL.revokeObjectURL(blobUrl);
       el.remove();
-      delete (window as unknown as Record<string, unknown>)[key];
+      Reflect.deleteProperty(window as unknown as Record<string, unknown>, key);
       reject(
         new Error("Script blocked by Content Security Policy (eval and blob: URL both denied)"),
       );
     };
 
-    (document.head ?? document.documentElement).appendChild(el);
+    document.head.appendChild(el);
   });
 }
 
@@ -87,7 +87,7 @@ export async function cspSafeExecStatements(code: string): Promise<unknown> {
  */
 export async function cspSafeExecExpression(code: string): Promise<unknown> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-implied-eval
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval, @typescript-eslint/no-unsafe-call
     return new Function(`return ${code}`)() as unknown;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -119,7 +119,7 @@ export async function cspSafeExecExpression(code: string): Promise<unknown> {
       const res = w[key] as
         | { ok: boolean; v?: unknown; e?: string; s?: string }
         | undefined;
-      delete w[key];
+      Reflect.deleteProperty(w, key);
 
       if (!res || res.ok) {
         resolve(res?.v);
@@ -133,12 +133,12 @@ export async function cspSafeExecExpression(code: string): Promise<unknown> {
     el.onerror = () => {
       URL.revokeObjectURL(blobUrl);
       el.remove();
-      delete (window as unknown as Record<string, unknown>)[key];
+      Reflect.deleteProperty(window as unknown as Record<string, unknown>, key);
       reject(
         new Error("Script blocked by Content Security Policy (eval and blob: URL both denied)"),
       );
     };
 
-    (document.head ?? document.documentElement).appendChild(el);
+    document.head.appendChild(el);
   });
 }

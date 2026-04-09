@@ -16,7 +16,7 @@ function getAppVersion(): string {
 
 /** Check if the app version satisfies a semver constraint like ">=0.2.1" */
 function satisfiesVersion(appVersion: string, constraint: string): boolean {
-  const match = constraint.match(/^(>=?|<=?|=)?(\d+\.\d+\.\d+)$/);
+  const match = /^(>=?|<=?|=)?(\d+\.\d+\.\d+)$/.exec(constraint);
   if (!match) return false;
 
   const operator = match[1] ?? ">=";
@@ -56,7 +56,7 @@ function satisfiesVersion(appVersion: string, constraint: string): boolean {
 async function fetchRegistry(): Promise<TemplateRegistry> {
   const response = await fetch(REGISTRY_URL);
   if (!response.ok) {
-    throw new Error(`Failed to fetch template registry: ${response.status} ${response.statusText}`);
+    throw new Error(`Failed to fetch template registry: ${String(response.status)} ${response.statusText}`);
   }
   return response.json() as Promise<TemplateRegistry>;
 }
@@ -65,7 +65,7 @@ async function fetchRegistry(): Promise<TemplateRegistry> {
 async function fetchTemplateFile(url: string): Promise<Template[]> {
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(`Failed to fetch template: ${response.status} ${response.statusText}`);
+    throw new Error(`Failed to fetch template: ${String(response.status)} ${response.statusText}`);
   }
   const file = (await response.json()) as TemplateFile;
   return file.templates;

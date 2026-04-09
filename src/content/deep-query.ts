@@ -153,7 +153,6 @@ function findFirstInShadowRoots(
   fn: (sr: ShadowRoot) => Element | null,
 ): Element | null {
   const rootNode = root instanceof Document ? root.documentElement : root;
-  if (!rootNode) return null;
   const walker = document.createTreeWalker(rootNode, NodeFilter.SHOW_ELEMENT);
   let node = walker.nextNode();
   while (node !== null) {

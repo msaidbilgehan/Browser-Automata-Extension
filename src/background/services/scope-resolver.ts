@@ -50,7 +50,7 @@ export async function resolveTargetScopes(
   const scopeMap = new Map<EntityId, UrlPattern>();
 
   // Collect which stores we need to read and which entity IDs from each
-  const storeNeeds = new Map<StoreKey, Array<{ itemId: EntityId; entityId: EntityId }>>();
+  const storeNeeds = new Map<StoreKey, { itemId: EntityId; entityId: EntityId }[]>();
 
   for (const item of items) {
     if (!item.scopeMode || item.scopeMode === "custom") continue;
@@ -72,9 +72,11 @@ export async function resolveTargetScopes(
   );
 
   for (let i = 0; i < storeKeys.length; i++) {
-    const key = storeKeys[i]!;
+    const key = storeKeys[i];
+    if (!key) continue;
     const store = (storeValues[i] ?? {}) as Record<string, { scope: UrlPattern }>;
-    const needs = storeNeeds.get(key)!;
+    const needs = storeNeeds.get(key);
+    if (!needs) continue;
 
     for (const { itemId, entityId } of needs) {
       const entity = store[entityId];

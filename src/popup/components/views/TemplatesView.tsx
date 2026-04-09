@@ -46,7 +46,9 @@ export function TemplatesView() {
   const [removedTemplates, setRemovedTemplates] = useState<InstalledTemplateRecord[]>([]);
 
   const fetchStatuses = useCallback(async (remoteTemplates: RemoteTemplate[]) => {
-    const compatible = remoteTemplates.filter((t) => t.compatible && t.template);
+    const compatible = remoteTemplates.filter(
+      (t): t is RemoteTemplate & { template: Template } => t.compatible && t.template != null,
+    );
 
     try {
       // Fetch statuses for catalog templates
@@ -54,7 +56,7 @@ export function TemplatesView() {
         const response = await sendToBackground({
           type: "GET_TEMPLATE_STATUSES",
           queries: compatible.map((remote) => {
-            const t = remote.template!;
+            const t = remote.template;
             return {
               templateId: t.id,
               remoteContentHash: remote.contentHash,
@@ -71,7 +73,7 @@ export function TemplatesView() {
 
       // Detect removed templates: installed but no longer in catalog
       const { installed } = await sendToBackground({ type: "GET_INSTALLED_TEMPLATES" });
-      const catalogIds = new Set(compatible.map((t) => t.template!.id));
+      const catalogIds = new Set(compatible.map((t) => t.template.id));
       const orphaned = Object.values(installed).filter((r) => !catalogIds.has(r.templateId));
       setRemovedTemplates(orphaned);
     } catch {
@@ -177,7 +179,9 @@ export function TemplatesView() {
     return statusMap[templateId] ?? "not_installed";
   };
 
-  const compatibleTemplates = templates.filter((t) => t.compatible && t.template);
+  const compatibleTemplates = templates.filter(
+    (t): t is RemoteTemplate & { template: Template } => t.compatible && t.template != null,
+  );
   const incompatibleTemplates = templates.filter((t) => !t.compatible);
 
   return (
@@ -224,7 +228,7 @@ export function TemplatesView() {
       ) : (
         <div className="grid grid-cols-2 gap-2">
           {compatibleTemplates.map((remote) => {
-            const template = remote.template as Template;
+            const template = remote.template;
             const status = getStatus(template.id);
             const isInstalling = installing === template.id;
             const isUpdating = updating === template.id;
@@ -281,7 +285,7 @@ export function TemplatesView() {
                           Installed
                         </span>
                         <button
-                          onClick={() => setConfirmUninstall(template.id)}
+                          onClick={() => { setConfirmUninstall(template.id); }}
                           disabled={isUninstalling}
                           className="text-text-muted hover:text-error transition-colors"
                           title="Uninstall template"
@@ -307,7 +311,7 @@ export function TemplatesView() {
                             </Button>
                             <Button
                               variant="ghost"
-                              onClick={() => setConfirmReset(null)}
+                              onClick={() => { setConfirmReset(null); }}
                               disabled={resetting === template.id}
                             >
                               Cancel
@@ -323,7 +327,7 @@ export function TemplatesView() {
                             </span>
                             <div className="flex items-center gap-1">
                               <button
-                                onClick={() => setConfirmReset(template.id)}
+                                onClick={() => { setConfirmReset(template.id); }}
                                 disabled={resetting === template.id}
                                 className="text-text-muted hover:text-warning transition-colors"
                                 title="Reset to original"
@@ -331,7 +335,7 @@ export function TemplatesView() {
                                 <RotateCcw size={10} />
                               </button>
                               <button
-                                onClick={() => setConfirmUninstall(template.id)}
+                                onClick={() => { setConfirmUninstall(template.id); }}
                                 disabled={isUninstalling}
                                 className="text-text-muted hover:text-error transition-colors"
                                 title="Uninstall template"
@@ -361,7 +365,7 @@ export function TemplatesView() {
                             </Button>
                             <Button
                               variant="ghost"
-                              onClick={() => setConfirmUpdate(null)}
+                              onClick={() => { setConfirmUpdate(null); }}
                               disabled={isUpdating}
                             >
                               Cancel
@@ -372,7 +376,7 @@ export function TemplatesView() {
                         <div className="flex items-center justify-between">
                           <Button
                             variant="secondary"
-                            onClick={() => setConfirmUpdate(template.id)}
+                            onClick={() => { setConfirmUpdate(template.id); }}
                             disabled={isUpdating}
                             className="gap-1"
                           >
@@ -380,7 +384,7 @@ export function TemplatesView() {
                             {isUpdating ? "Updating..." : "Update Available"}
                           </Button>
                           <button
-                            onClick={() => setConfirmUninstall(template.id)}
+                            onClick={() => { setConfirmUninstall(template.id); }}
                             disabled={isUninstalling}
                             className="text-text-muted hover:text-error transition-colors"
                             title="Uninstall template"
@@ -408,7 +412,7 @@ export function TemplatesView() {
                             </Button>
                             <Button
                               variant="ghost"
-                              onClick={() => setConfirmUpdate(null)}
+                              onClick={() => { setConfirmUpdate(null); }}
                               disabled={isUpdating}
                             >
                               Cancel
@@ -424,7 +428,7 @@ export function TemplatesView() {
                             </span>
                             <div className="flex items-center gap-1">
                               <button
-                                onClick={() => setConfirmReset(template.id)}
+                                onClick={() => { setConfirmReset(template.id); }}
                                 disabled={resetting === template.id}
                                 className="text-text-muted hover:text-warning transition-colors"
                                 title="Reset to original"
@@ -432,7 +436,7 @@ export function TemplatesView() {
                                 <RotateCcw size={10} />
                               </button>
                               <button
-                                onClick={() => setConfirmUninstall(template.id)}
+                                onClick={() => { setConfirmUninstall(template.id); }}
                                 disabled={isUninstalling}
                                 className="text-text-muted hover:text-error transition-colors"
                                 title="Uninstall template"
@@ -443,7 +447,7 @@ export function TemplatesView() {
                           </div>
                           <Button
                             variant="secondary"
-                            onClick={() => setConfirmUpdate(template.id)}
+                            onClick={() => { setConfirmUpdate(template.id); }}
                             disabled={isUpdating}
                             className="gap-1"
                           >
@@ -471,7 +475,7 @@ export function TemplatesView() {
                           </Button>
                           <Button
                             variant="ghost"
-                            onClick={() => setConfirmUninstall(null)}
+                            onClick={() => { setConfirmUninstall(null); }}
                             disabled={isUninstalling}
                           >
                             Cancel
@@ -508,7 +512,7 @@ export function TemplatesView() {
                   </span>
                   {!isConfirmingRemoved ? (
                     <button
-                      onClick={() => setConfirmUninstall(record.templateId)}
+                      onClick={() => { setConfirmUninstall(record.templateId); }}
                       disabled={isUninstallingRemoved}
                       className="text-text-muted hover:text-error transition-colors"
                       title="Uninstall template"
@@ -534,7 +538,7 @@ export function TemplatesView() {
                       </Button>
                       <Button
                         variant="ghost"
-                        onClick={() => setConfirmUninstall(null)}
+                        onClick={() => { setConfirmUninstall(null); }}
                         disabled={isUninstallingRemoved}
                       >
                         Cancel

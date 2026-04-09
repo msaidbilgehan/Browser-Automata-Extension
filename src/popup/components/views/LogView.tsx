@@ -213,12 +213,12 @@ const LogEntry = memo(function LogEntry({ entry, onToggle }: { entry: ActivityLo
   const [expanded, setExpanded] = useState(false);
 
   const consoleLogs = entry.details?.["consoleLogs"] as
-    | Array<{ level: string; text: string; timestamp: number }>
+    | { level: string; text: string; timestamp: number }[]
     | undefined;
   const returnValue = entry.details?.["returnValue"] as string | undefined;
   const durationMs = entry.details?.["durationMs"] as number | undefined;
 
-  const hasDetails = entry.error || (consoleLogs && consoleLogs.length > 0) || returnValue !== undefined;
+  const hasDetails = entry.error ?? (consoleLogs && consoleLogs.length > 0) ?? returnValue !== undefined;
 
   return (
     <div

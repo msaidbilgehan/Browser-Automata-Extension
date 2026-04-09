@@ -311,7 +311,7 @@ export type TemplateStatus =
 
 export interface GetTemplateStatusesMessage {
   type: "GET_TEMPLATE_STATUSES";
-  queries: Array<{
+  queries: {
     templateId: string;
     remoteContentHash?: string | undefined;
     templateName: string;
@@ -319,7 +319,7 @@ export interface GetTemplateStatusesMessage {
     templateCategory: string;
     templateTags: string[];
     templateAuthor?: string | undefined;
-  }>;
+  }[];
 }
 
 export interface TemplateStatusesResponse {

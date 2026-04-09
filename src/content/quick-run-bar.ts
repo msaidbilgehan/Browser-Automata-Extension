@@ -170,14 +170,14 @@ function applyPosition(): void {
   barEl.style.removeProperty("right");
 
   if (pos.includes("top")) {
-    barEl.style.setProperty("top", `${EDGE_MARGIN + offsetY}px`, "important");
+    barEl.style.setProperty("top", `${String(EDGE_MARGIN + offsetY)}px`, "important");
   } else {
-    barEl.style.setProperty("bottom", `${EDGE_MARGIN + offsetY}px`, "important");
+    barEl.style.setProperty("bottom", `${String(EDGE_MARGIN + offsetY)}px`, "important");
   }
   if (pos.includes("left")) {
-    barEl.style.setProperty("left", `${EDGE_MARGIN + offsetX}px`, "important");
+    barEl.style.setProperty("left", `${String(EDGE_MARGIN + offsetX)}px`, "important");
   } else {
-    barEl.style.setProperty("right", `${EDGE_MARGIN + offsetX}px`, "important");
+    barEl.style.setProperty("right", `${String(EDGE_MARGIN + offsetX)}px`, "important");
   }
 }
 
@@ -230,7 +230,7 @@ function renderBar(): void {
     }
 
     btn.addEventListener("click", () => {
-      void executeAction(action.id);
+      executeAction(action.id);
     });
 
     fragment.appendChild(btn);

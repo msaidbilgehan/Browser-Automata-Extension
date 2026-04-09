@@ -21,7 +21,7 @@ import type { InstalledTemplateRecord } from "@/shared/storage/keys";
  */
 async function installFromTemplate(
   template: Template,
-  registryContentHash?: string | undefined,
+  registryContentHash?: string  ,
 ): Promise<{ ok: boolean; error?: string }> {
   const timestamp = now();
   const meta: EntityMeta = { createdAt: timestamp, updatedAt: timestamp };
@@ -178,8 +178,8 @@ async function trackInstalledTemplate(
   templateVersion: string,
   timestamp: ISOTimestamp,
   contentHash: string,
-  templateName?: string | undefined,
-  remoteContentHash?: string | undefined,
+  templateName?: string  ,
+  remoteContentHash?: string  ,
 ): Promise<void> {
   await localStore.update(
     "installedTemplates",
@@ -206,13 +206,10 @@ async function trackInstalledTemplate(
 async function removeScriptsByTemplateId(templateId: string): Promise<void> {
   await localStore.update(
     "scripts",
-    (scripts) => {
-      const updated = { ...scripts };
-      for (const [id, script] of Object.entries(updated)) {
-        if (script.templateId === templateId) delete updated[id];
-      }
-      return updated;
-    },
+    (scripts) =>
+      Object.fromEntries(
+        Object.entries(scripts).filter(([, s]) => s.templateId !== templateId),
+      ),
     {},
   );
 }
@@ -223,13 +220,10 @@ async function removeScriptsByTemplateId(templateId: string): Promise<void> {
 async function removeShortcutsByTemplateId(templateId: string): Promise<void> {
   await localStore.update(
     "shortcuts",
-    (shortcuts) => {
-      const updated = { ...shortcuts };
-      for (const [id, shortcut] of Object.entries(updated)) {
-        if (shortcut.templateId === templateId) delete updated[id];
-      }
-      return updated;
-    },
+    (shortcuts) =>
+      Object.fromEntries(
+        Object.entries(shortcuts).filter(([, s]) => s.templateId !== templateId),
+      ),
     {},
   );
 }
@@ -240,13 +234,10 @@ async function removeShortcutsByTemplateId(templateId: string): Promise<void> {
 async function removeCssRulesByTemplateId(templateId: string): Promise<void> {
   await localStore.update(
     "cssRules",
-    (cssRules) => {
-      const updated = { ...cssRules };
-      for (const [id, rule] of Object.entries(updated)) {
-        if (rule.templateId === templateId) delete updated[id];
-      }
-      return updated;
-    },
+    (cssRules) =>
+      Object.fromEntries(
+        Object.entries(cssRules).filter(([, r]) => r.templateId !== templateId),
+      ),
     {},
   );
 }
@@ -257,13 +248,10 @@ async function removeCssRulesByTemplateId(templateId: string): Promise<void> {
 async function removeFlowsByTemplateId(templateId: string): Promise<void> {
   await localStore.update(
     "flows",
-    (flows) => {
-      const updated = { ...flows };
-      for (const [id, flow] of Object.entries(updated)) {
-        if (flow.templateId === templateId) delete updated[id];
-      }
-      return updated;
-    },
+    (flows) =>
+      Object.fromEntries(
+        Object.entries(flows).filter(([, f]) => f.templateId !== templateId),
+      ),
     {},
   );
 }
@@ -274,13 +262,10 @@ async function removeFlowsByTemplateId(templateId: string): Promise<void> {
 async function removeExtractionRulesByTemplateId(templateId: string): Promise<void> {
   await localStore.update(
     "extractionRules",
-    (rules) => {
-      const updated = { ...rules };
-      for (const [id, rule] of Object.entries(updated)) {
-        if (rule.templateId === templateId) delete updated[id];
-      }
-      return updated;
-    },
+    (rules) =>
+      Object.fromEntries(
+        Object.entries(rules).filter(([, r]) => r.templateId !== templateId),
+      ),
     {},
   );
 }
@@ -291,13 +276,10 @@ async function removeExtractionRulesByTemplateId(templateId: string): Promise<vo
 async function removeNetworkRulesByTemplateId(templateId: string): Promise<void> {
   await localStore.update(
     "networkRules",
-    (rules) => {
-      const updated = { ...rules };
-      for (const [id, rule] of Object.entries(updated)) {
-        if (rule.templateId === templateId) delete updated[id];
-      }
-      return updated;
-    },
+    (rules) =>
+      Object.fromEntries(
+        Object.entries(rules).filter(([, r]) => r.templateId !== templateId),
+      ),
     {},
   );
 }
@@ -406,11 +388,10 @@ export async function uninstallTemplate(
   // Remove the installed template record
   await localStore.update(
     "installedTemplates",
-    (records) => {
-      const updated = { ...records };
-      delete updated[templateId];
-      return updated;
-    },
+    (records) =>
+      Object.fromEntries(
+        Object.entries(records).filter(([key]) => key !== templateId),
+      ),
     {},
   );
 
@@ -470,7 +451,8 @@ export async function computeLocalHash(
   const stripEntity = <T extends { id: unknown; meta: unknown; templateId?: unknown; enabled?: unknown }>(
     entity: T,
   ): Omit<T, "id" | "meta" | "templateId" | "enabled"> => {
-    const { id: _id, meta: _meta, templateId: _tid, enabled: _enabled, ...rest } = entity;
+    const { id: _id, meta: _meta, templateId: _tid, enabled: _enabled, ...rest } = entity as Record<string, unknown>;
+    void _id; void _meta; void _tid; void _enabled;
     return rest as Omit<T, "id" | "meta" | "templateId" | "enabled">;
   };
 

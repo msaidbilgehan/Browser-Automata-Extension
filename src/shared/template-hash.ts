@@ -37,7 +37,8 @@ function stripEnabled<T>(entities: T[] | undefined): T[] | undefined {
   if (!entities) return undefined;
   return entities.map((e) => {
     if (typeof e === "object" && e !== null && "enabled" in e) {
-      const { enabled: _, ...rest } = e as Record<string, unknown>;
+      const { enabled: _enabled, ...rest } = e as Record<string, unknown>;
+      void _enabled;
       return rest as T;
     }
     return e;

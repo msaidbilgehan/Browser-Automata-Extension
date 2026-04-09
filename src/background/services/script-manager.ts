@@ -44,7 +44,7 @@ export async function executeScript(
       args: [script.code],
     });
 
-    const raw = results[0]?.result as ExecuteUserCodeResult | undefined;
+    const raw = results[0]?.result;
     const consoleLogs = raw?.consoleLogs ?? [];
     const durationMs = raw?.durationMs ?? 0;
 
@@ -179,12 +179,12 @@ async function executeUserCode(code: string): Promise<ExecuteUserCodeResult> {
     if (value === null) return "null";
     if (typeof value === "string") return value;
     if (typeof value === "function") {
-      return `[Function: ${(value as { name?: string }).name || "anonymous"}]`;
+      return `[Function: ${(value as { name?: string }).name ?? "anonymous"}]`;
     }
     try {
       return JSON.stringify(value, null, 2);
     } catch {
-      return String(value);
+      return typeof value === "object" ? "[object]" : String(value as string | number | boolean | bigint | symbol);
     }
   }
 
@@ -263,7 +263,7 @@ async function executeUserCode(code: string): Promise<ExecuteUserCodeResult> {
       URL.revokeObjectURL(blobUrl);
       el.remove();
       restoreConsole();
-      delete (window as unknown as Record<string, unknown>)[resultKey];
+      Reflect.deleteProperty(window as unknown as Record<string, unknown>, resultKey);
       resolve(result);
     };
 
@@ -299,6 +299,6 @@ async function executeUserCode(code: string): Promise<ExecuteUserCodeResult> {
       });
     };
 
-    (document.head ?? document.documentElement).appendChild(el);
+    document.head.appendChild(el);
   });
 }
