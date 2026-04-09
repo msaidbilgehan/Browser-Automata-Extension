@@ -4,6 +4,32 @@ All notable changes to Browser Automata are documented in this file.
 
 ---
 
+## v0.2.8 — 2026-04-09
+
+> Per-entity error notifications and global notification controls.
+
+### New Features
+
+- **Per-Entity Notify on Error** — Scripts and Flows now have an optional "Notify on Error" toggle. When enabled, a Chrome desktop notification is fired on execution failure — covering manual runs, scheduled executions, and flow errors.
+- **Global Notifications Toggle** — New `notifications.enabled` setting in Settings > Notifications acts as a master switch for all Chrome notifications (error alerts, notification rules). When off, no desktop notifications are sent regardless of per-entity settings.
+- **Notification Settings UI** — New `NotificationSettings` component in the Settings view with an enable/disable toggle and contextual help text.
+
+### Bug Fixes
+
+- **Notification Icon Path** — Fixed incorrect icon path in `notification-checker.ts` that caused notification icons to not display (`icons/icon-48.png` → `src/assets/icons/icon-48.png`).
+- **State Handler Settings Merge** — Fixed `handleGetState` to properly merge `quickRun`, `quickTip`, and `notifications` settings with defaults, preventing missing settings on first load.
+- **Async `notifyError`** — `notifyError` is now properly `async` and awaited in `retry-handler.ts`, ensuring the global notifications check completes before attempting to send.
+
+### Improvements
+
+- **Inline Notification Warnings** — Script and Flow editors show an inline warning when "Notify on Error" is enabled but global notifications are disabled, guiding users to the correct setting.
+
+### Code Quality
+
+- **Map Type Inference** — Removed redundant type annotations on `Map` initializers in `flow-executor.ts`, relying on TypeScript inference.
+
+---
+
 ## v0.2.7 — 2026-04-06
 
 > Privacy policy for Chrome Web Store compliance with in-app viewer.

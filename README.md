@@ -4,7 +4,7 @@
 
 Wire keyboard shortcuts to page elements, execute JavaScript on any domain, extract structured data, chain multi-step flows, inject custom CSS, intercept network requests — all from a compact popup UI. Pre-built templates lower the entry barrier for non-technical users, but the engine never constrains power users.
 
-> **Status:** v0.2.7 · Chrome Extension (Manifest V3) · Private License
+> **Status:** v0.2.8 · Chrome Extension (Manifest V3) · BSD 3-Clause License
 
 ---
 
@@ -113,7 +113,7 @@ The goal is to be the single extension that replaces a collection of single-purp
 | **Import / Export** | Full JSON backup and restore with merge strategies. |
 | **Global Kill Switch** | Instantly disable all automations from the popup header. |
 | **Activity Log** | Timestamped, filterable log with virtual scrolling for 5,000+ entries. |
-| **Error Surfacing** | Badge icon and desktop notifications on script errors. |
+| **Error Surfacing** | Badge icon and desktop notifications on script/flow errors. Per-entity "Notify on Error" toggle with a global notifications switch in Settings. |
 | **Pre-Built Templates** | One-click install: Cookie Dismisser, Video Navigator, Dark Mode, Element Hider, Auto-Clicker, and more. Template status tracking with update detection, uninstall, and reset to defaults. |
 
 ---
