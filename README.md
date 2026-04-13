@@ -6,6 +6,13 @@ Wire keyboard shortcuts to page elements, execute JavaScript on any domain, extr
 
 > **Status:** v0.2.8 · Chrome Extension (Manifest V3) · BSD 3-Clause License
 
+[![Chrome Web Store](https://img.shields.io/chrome-web-store/v/gimomgbincmbllikjjcfabigokempefk?style=flat-square&logo=google-chrome&logoColor=white&label=Chrome%20Extension)](https://chromewebstore.google.com/detail/browser-automata/gimomgbincmbllikjjcfabigokempefk)
+
+## End User Installation
+
+1. Install **Browser Automata** directly from the [Chrome Web Store](https://chromewebstore.google.com/detail/browser-automata/gimomgbincmbllikjjcfabigokempefk).
+2. Click **Add to Chrome**.
+
 ---
 
 ## Table of Contents
