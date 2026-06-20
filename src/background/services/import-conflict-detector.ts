@@ -15,6 +15,8 @@ import type {
   ImportEntityOverride,
 } from "@/shared/types/import-export";
 import { localStore } from "@/shared/storage";
+import { resyncEntitySideEffects } from "./side-effect-sync";
+import { validateImportEnvelope } from "./import-export";
 
 /** Entity sections that contain id-keyed records (excludes settings) */
 const ENTITY_SECTIONS = [
@@ -205,6 +207,16 @@ export async function importSelective(
   selectedIds: EntityId[],
   overrides?: Record<string, ImportEntityOverride>,
 ): Promise<{ ok: boolean }> {
+  // Reject malformed/foreign payloads before touching storage (same envelope
+  // check as importConfig).
+  const validation = validateImportEnvelope(data);
+  if (!validation.ok) {
+    console.warn(
+      `[Browser Automata] Selective import rejected: ${validation.reason ?? "invalid payload"}`,
+    );
+    return { ok: false };
+  }
+
   const selectedSet = new Set<string>(selectedIds);
 
   for (const section of ENTITY_SECTIONS) {
@@ -215,6 +227,9 @@ export async function importSelective(
 
     for (const item of importedItems) {
       const entity = item as unknown as Record<string, unknown> & { id: string };
+      // Skip entities without a valid string id — they would key storage under
+      // "undefined" and corrupt the id-record.
+      if (typeof entity.id !== "string" || entity.id.trim() === "") continue;
       if (!selectedSet.has(entity.id)) continue;
 
       // Apply overrides for this entity
@@ -240,6 +255,11 @@ export async function importSelective(
       {} as StorageSchema[keyof StorageSchema],
     );
   }
+
+  // Selective import can add network rules, notification rules, and scheduled
+  // scripts — re-sync the declarativeNetRequest engine and alarms so they take
+  // effect immediately.
+  await resyncEntitySideEffects();
 
   return { ok: true };
 }

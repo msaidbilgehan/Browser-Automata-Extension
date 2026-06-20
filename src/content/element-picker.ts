@@ -13,20 +13,11 @@ let tooltipEl: HTMLDivElement | null = null;
 let hintEl: HTMLDivElement | null = null;
 let currentTarget: Element | null = null;
 
-// ─── Alternatives panel state ───────────────────────────────────────────────
-
-let alternativesPanelEl: HTMLDivElement | null = null;
-let selectedIndex = 0;
-let panelAlternatives: SelectorAlternative[] = [];
-let panelTarget: Element | null = null;
-let isPanelOpen = false;
-
 // ─── Shared style constants ──────────────────────────────────────────────────
 
 const PICKER_Z_INDEX = "2147483647";
 const ACCENT_COLOR = "#3b82f6";
 const ACCENT_BG = "rgba(59, 130, 246, 0.1)";
-
 
 // ─── Selector generation ─────────────────────────────────────────────────────
 
@@ -233,43 +224,26 @@ function cssMatchCount(sel: string): number {
   return querySelectorAllDeep(sel).length;
 }
 
-/** Count how many nodes match an XPath expression (searches shadow roots) */
+/**
+ * Count how many nodes match an XPath expression.
+ *
+ * `document.evaluate` cannot cross shadow boundaries, and an absolute XPath
+ * (`//…`) ignores its context node — so evaluating it per shadow root would
+ * just re-scan the entire light DOM and inflate the count (and draw duplicate
+ * highlights). Evaluate it once against the document.
+ */
 function xpathMatchCount(expr: string): number {
-  let total = 0;
   try {
-    const result = document.evaluate(expr, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
-    total += result.snapshotLength;
+    const result = document.evaluate(
+      expr,
+      document,
+      null,
+      XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+      null,
+    );
+    return result.snapshotLength;
   } catch {
-    // skip
-  }
-  // Also evaluate inside each reachable open shadow root
-  xpathWalkShadowRoots(document, expr, (count) => { total += count; });
-  return total;
-}
-
-/** Walk shadow roots and evaluate XPath in each */
-function xpathWalkShadowRoots(
-  root: Document | ShadowRoot,
-  expr: string,
-  cb: (count: number) => void,
-): void {
-  const allElements = root.querySelectorAll("*");
-  for (const el of allElements) {
-    if (el.shadowRoot !== null) {
-      try {
-        const result = document.evaluate(
-          expr,
-          el.shadowRoot,
-          null,
-          XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
-          null,
-        );
-        cb(result.snapshotLength);
-      } catch {
-        // skip
-      }
-      xpathWalkShadowRoots(el.shadowRoot, expr, cb);
-    }
+    return 0;
   }
 }
 
@@ -447,12 +421,12 @@ function tryXPathAttrAlternatives(el: Element, out: SelectorAlternative[]): void
 
 /** Strategy preference order for sorting */
 const STRATEGY_ORDER: Record<SelectorStrategy, number> = {
-  "id": 0,
+  id: 0,
   "data-attr": 1,
-  "aria": 2,
-  "attribute": 3,
-  "class": 4,
-  "ancestor": 5,
+  aria: 2,
+  attribute: 3,
+  class: 4,
+  ancestor: 5,
   "nth-child": 6,
   "xpath-text": 7,
   "xpath-attr": 8,
@@ -694,49 +668,7 @@ function createHint(): HTMLDivElement {
   return el;
 }
 
-// ─── Alternatives panel ─────────────────────────────────────────────────────
-
-
-
-/** Close the alternatives panel and return to hover-picking mode */
-function closeAlternativesPanel(): void {
-  if (alternativesPanelEl !== null) {
-    alternativesPanelEl.remove();
-    alternativesPanelEl = null;
-  }
-  isPanelOpen = false;
-  panelAlternatives = [];
-  panelTarget = null;
-  selectedIndex = 0;
-
-  window.removeEventListener("scroll", onScrollWhilePanel, true);
-
-  // Re-enable hover tracking
-  document.addEventListener("mouseover", onMouseOver, true);
-
-  // Restore hint banner
-  if (hintEl !== null) {
-    hintEl.textContent = "Click an element to select it \u2014 Press Esc to cancel";
-  }
-}
-
-/** Update visual selection in the panel to match selectedIndex */
-function updatePanelSelection(): void {
-  if (alternativesPanelEl === null) return;
-  const rows = alternativesPanelEl.querySelectorAll<HTMLButtonElement>("[data-ba-alt-index]");
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i];
-    if (row === undefined) continue;
-    const isSelected = i === selectedIndex;
-    row.style.background = isSelected ? "rgba(59,130,246,0.15)" : "transparent";
-    const check = row.querySelector<HTMLSpanElement>("[data-ba-check]");
-    if (check !== null) {
-      check.textContent = isSelected ? "\u2713" : "";
-    }
-  }
-  // Scroll the active row into view
-  rows[selectedIndex]?.scrollIntoView({ block: "nearest" });
-}
+// ─── Picked-result dispatch ─────────────────────────────────────────────────────
 
 /** Send the picked selector result and clean up */
 function sendPickedResult(selector: string, alternatives: SelectorAlternative[]): void {
@@ -748,29 +680,7 @@ function sendPickedResult(selector: string, alternatives: SelectorAlternative[])
   chrome.runtime.sendMessage({ type: "ELEMENT_PICKED", selector, alternatives }).catch(() => {
     // Service worker may not be ready
   });
-  closeAlternativesPanel();
   stopPicking();
-}
-
-/** Handle user selecting an alternative from the panel */
-function selectAlternative(index: number): void {
-  const alt = panelAlternatives[index];
-  if (alt === undefined) return;
-  sendPickedResult(alt.selector, panelAlternatives);
-}
-
-/** Reposition highlight and panel when the page scrolls */
-function onScrollWhilePanel(): void {
-  if (panelTarget === null || alternativesPanelEl === null) return;
-
-  // Reposition highlight over the target element
-  if (highlightEl !== null) {
-    const rect = panelTarget.getBoundingClientRect();
-    highlightEl.style.top = `${String(rect.top)}px`;
-    highlightEl.style.left = `${String(rect.left)}px`;
-    highlightEl.style.width = `${String(rect.width)}px`;
-    highlightEl.style.height = `${String(rect.height)}px`;
-  }
 }
 
 // ─── Event handlers ──────────────────────────────────────────────────────────
@@ -857,19 +767,6 @@ function onClick(e: MouseEvent): void {
     return;
   }
 
-  // If the old panel is open, handle it for backwards compat
-  if (isPanelOpen && alternativesPanelEl !== null) {
-    const target = e.target;
-    if (target instanceof Node && alternativesPanelEl.contains(target)) {
-      return;
-    }
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation();
-    closeAlternativesPanel();
-    return;
-  }
-
   e.preventDefault();
   e.stopPropagation();
   e.stopImmediatePropagation();
@@ -879,9 +776,7 @@ function onClick(e: MouseEvent): void {
   // Generate alternatives for the clicked element
   const alternatives = generateSelectorAlternatives(currentTarget);
   const firstAlt = alternatives[0];
-  const bestSelector = firstAlt !== undefined
-    ? firstAlt.selector
-    : generateSelector(currentTarget);
+  const bestSelector = firstAlt !== undefined ? firstAlt.selector : generateSelector(currentTarget);
 
   // Freeze hover tracking while widget is open
   document.removeEventListener("mouseover", onMouseOver, true);
@@ -916,7 +811,7 @@ function onClick(e: MouseEvent): void {
   });
 }
 
-/** Handle keydown — widget/panel Escape + panel navigation */
+/** Handle keydown — Escape cancels the picker */
 function onKeyDown(e: KeyboardEvent): void {
   if (!isActive) return;
 
@@ -927,36 +822,7 @@ function onKeyDown(e: KeyboardEvent): void {
   if (e.key === "Escape") {
     e.preventDefault();
     e.stopPropagation();
-    if (isPanelOpen) {
-      // First Escape: close panel, return to hover-picking mode
-      closeAlternativesPanel();
-    } else {
-      // Second Escape (or Escape without panel): fully cancel picker
-      stopPicking();
-    }
-    return;
-  }
-
-  // Panel keyboard navigation (legacy panel)
-  if (!isPanelOpen) return;
-
-  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-    e.preventDefault();
-    e.stopPropagation();
-    const count = panelAlternatives.length;
-    if (count === 0) return;
-    if (e.key === "ArrowDown") {
-      selectedIndex = (selectedIndex + 1) % count;
-    } else {
-      selectedIndex = (selectedIndex - 1 + count) % count;
-    }
-    updatePanelSelection();
-  }
-
-  if (e.key === "Enter") {
-    e.preventDefault();
-    e.stopPropagation();
-    selectAlternative(selectedIndex);
+    stopPicking();
   }
 }
 
@@ -989,7 +855,6 @@ export function stopPicking(): void {
   document.removeEventListener("mouseover", onMouseOver, true);
   document.removeEventListener("click", onClick, true);
   document.removeEventListener("keydown", onKeyDown, true);
-  window.removeEventListener("scroll", onScrollWhilePanel, true);
 
   if (highlightEl !== null) {
     highlightEl.remove();
@@ -1003,14 +868,6 @@ export function stopPicking(): void {
     hintEl.remove();
     hintEl = null;
   }
-  if (alternativesPanelEl !== null) {
-    alternativesPanelEl.remove();
-    alternativesPanelEl = null;
-  }
 
-  isPanelOpen = false;
-  panelAlternatives = [];
-  panelTarget = null;
-  selectedIndex = 0;
   currentTarget = null;
 }

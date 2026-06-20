@@ -1,17 +1,12 @@
 import { useState, useEffect } from "react";
 import type { KeyCombo, UrlPattern, EntityId } from "@/shared/types/entities";
 import { localStore } from "@/shared/storage";
-import { serializeKeyCombo, type ConflictWarning } from "@/background/services/conflict-detector";
+import {
+  serializeKeyCombo,
+  BROWSER_SHORTCUTS,
+  type ConflictWarning,
+} from "@/background/services/conflict-detector";
 import { scopesOverlap } from "@/shared/url-pattern";
-
-/** Known browser keyboard shortcuts that should trigger warnings */
-const BROWSER_SHORTCUTS: string[] = [
-  "Ctrl+T", "Ctrl+W", "Ctrl+N", "Ctrl+Shift+T", "Ctrl+Shift+N",
-  "Ctrl+Tab", "Ctrl+Shift+Tab", "Ctrl+L", "Ctrl+D", "Ctrl+H",
-  "Ctrl+J", "Ctrl+S", "Ctrl+P", "Ctrl+F", "Ctrl+G", "Ctrl+R",
-  "Ctrl+Shift+R", "F5", "F11", "F12", "Alt+F4",
-  "Ctrl+Shift+I", "Ctrl+Shift+J",
-];
 
 function keyComboEquals(a: KeyCombo, b: KeyCombo): boolean {
   return (

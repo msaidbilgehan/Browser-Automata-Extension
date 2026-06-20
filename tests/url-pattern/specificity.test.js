@@ -38,6 +38,21 @@ describe("getSpecificity", () => {
     it("returns 0 for global patterns", () => {
         expect(getSpecificity(global())).toBe(0);
     });
+    describe("host-wildcard detection with a protocol prefix", () => {
+        it("ranks a host wildcard as 60 regardless of protocol prefix", () => {
+            expect(getSpecificity(globWildcardHost("*://*.github.com/*"))).toBe(60);
+            expect(getSpecificity(globWildcardHost("https://*.github.com/*"))).toBe(60);
+            expect(getSpecificity(globWildcardHost("*.github.com"))).toBe(60);
+        });
+        it("ranks a path-only wildcard as 80 regardless of protocol prefix", () => {
+            expect(getSpecificity(globNoWildcardHost("https://github.com/*"))).toBe(80);
+            expect(getSpecificity(globNoWildcardHost("*://github.com/user/*"))).toBe(80);
+            expect(getSpecificity(globNoWildcardHost("github.com/*"))).toBe(80);
+        });
+        it("ranks protocol-prefixed equivalents identically (the M9 regression)", () => {
+            expect(getSpecificity(globWildcardHost("*://*.github.com/*"))).toBe(getSpecificity(globWildcardHost("https://*.github.com/*")));
+        });
+    });
 });
 // ---------------------------------------------------------------------------
 // compareSpecificity

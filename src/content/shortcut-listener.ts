@@ -1,6 +1,6 @@
 import type { Shortcut, KeyCombo, ChordCombo } from "@/shared/types/entities";
 import { querySelectorDeep } from "./deep-query";
-import { showKeyToast } from "./toast";
+import { showKeyToast, showErrorToast } from "./toast";
 import { flashHighlight } from "./action-highlight";
 
 /** Active shortcuts for the current page, pushed from service worker */
@@ -23,7 +23,15 @@ let chordCandidates: Shortcut[] = [];
 export function setActiveShortcuts(shortcuts: Shortcut[]): void {
   activeShortcuts = shortcuts;
   resetChordState();
-  console.debug(`[Browser Automata] Received ${String(shortcuts.length)} shortcut(s) for this page`);
+  // Drop debounce timestamps for shortcuts that are no longer active so the
+  // map stays bounded to the current shortcut set.
+  const activeIds = new Set<string>(shortcuts.map((s) => s.id));
+  for (const id of lastFireTime.keys()) {
+    if (!activeIds.has(id)) lastFireTime.delete(id);
+  }
+  console.debug(
+    `[Browser Automata] Received ${String(shortcuts.length)} shortcut(s) for this page`,
+  );
 }
 
 /** Get active shortcut count (for debugging) */
@@ -45,18 +53,30 @@ function eventToKeyCombo(e: KeyboardEvent): KeyCombo {
 /**
  * Check if a KeyCombo matches another KeyCombo.
  *
- * For single printable characters the shift state is already encoded in the
- * key value itself (e.g. "8" vs "*", "a" vs "A"), so we skip the shiftKey
- * comparison to avoid false negatives on keyboards where the character
- * requires Shift to produce.
+ * For a single printable character the produced `e.key` already encodes the
+ * Shift state (e.g. "8" vs "*", "a" vs "A"), so the character itself is the
+ * source of truth: compare it exactly (case-sensitive) and ignore Shift.
+ * Matching case-insensitively and skipping Shift — as before — made a "/"
+ * shortcut also fire on "?" (Shift+/) and "a" on Shift+"A", hijacking the
+ * page's own keys.
+ *
+ * Named keys (Enter, ArrowUp, F5, …) carry no character casing, so they are
+ * compared with the full modifier set, Shift included.
  */
 function comboMatches(combo: KeyCombo, event: KeyCombo): boolean {
-  const isSingleChar = combo.key.length === 1;
+  if (combo.key.length === 1) {
+    return (
+      combo.key === event.key &&
+      combo.ctrlKey === event.ctrlKey &&
+      combo.altKey === event.altKey &&
+      combo.metaKey === event.metaKey
+    );
+  }
 
   return (
     combo.key.toLowerCase() === event.key.toLowerCase() &&
     combo.ctrlKey === event.ctrlKey &&
-    (isSingleChar || combo.shiftKey === event.shiftKey) &&
+    combo.shiftKey === event.shiftKey &&
     combo.altKey === event.altKey &&
     combo.metaKey === event.metaKey
   );
@@ -159,6 +179,11 @@ function formatKeyCombo(combo: KeyCombo | ChordCombo): string {
 function executeShortcutAction(shortcut: Shortcut): void {
   // Debounce: skip if fired too recently
   const now = Date.now();
+  // Prune entries that have aged out of the debounce window so the map can't
+  // accumulate stale shortcut IDs over a long-lived page session.
+  for (const [id, ts] of lastFireTime) {
+    if (now - ts >= DEBOUNCE_MS) lastFireTime.delete(id);
+  }
   const lastFire = lastFireTime.get(shortcut.id);
   if (lastFire !== undefined && now - lastFire < DEBOUNCE_MS) return;
   lastFireTime.set(shortcut.id, now);
@@ -171,15 +196,14 @@ function executeShortcutAction(shortcut: Shortcut): void {
   switch (shortcut.action.type) {
     case "click": {
       const el = querySelectorDeep(shortcut.action.selector);
-      if (el instanceof HTMLElement) {
-        el.click();
-        flashHighlight(el);
+      if (el !== null) {
+        clickElement(el);
+        if (el instanceof HTMLElement) flashHighlight(el);
         notifyServiceWorker(shortcut.id);
       } else {
-        console.warn(
-          `[Browser Automata] click: no matching HTMLElement for selector`,
-          shortcut.action.selector,
-          el,
+        reportActionFailure(
+          shortcut,
+          `no element matched "${shortcut.action.selector}"`,
         );
       }
       break;
@@ -191,10 +215,9 @@ function executeShortcutAction(shortcut: Shortcut): void {
         flashHighlight(el);
         notifyServiceWorker(shortcut.id);
       } else {
-        console.warn(
-          `[Browser Automata] focus: no matching HTMLElement for selector`,
-          shortcut.action.selector,
-          el,
+        reportActionFailure(
+          shortcut,
+          `no focusable element matched "${shortcut.action.selector}"`,
         );
       }
       break;
@@ -210,6 +233,33 @@ function executeShortcutAction(shortcut: Shortcut): void {
   }
 }
 
+/**
+ * Activate an element. Uses the native `click()` (present on HTML and SVG
+ * elements) and falls back to a synthetic, bubbling MouseEvent for anything
+ * else so an SVG-less custom element is still clickable. The old code required
+ * `instanceof HTMLElement`, which silently skipped SVG icon buttons.
+ */
+function clickElement(el: Element): void {
+  const clickable = el as HTMLElement;
+  if (typeof clickable.click === "function") {
+    clickable.click();
+  } else {
+    el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+  }
+}
+
+/**
+ * Surface a content-script action failure: an on-page error toast for the user
+ * plus a service-worker notification so the activity log records the failure.
+ * Previously a missing target only emitted a `console.warn`, so the user saw the
+ * "triggered" toast but got no indication the click/focus never happened.
+ */
+function reportActionFailure(shortcut: Shortcut, reason: string): void {
+  console.warn(`[Browser Automata] ${shortcut.name}: ${reason}`);
+  showErrorToast(`${shortcut.name}: ${reason}`);
+  notifyServiceWorker(shortcut.id, reason);
+}
+
 /** Returns false when the extension has been reloaded/uninstalled and this content script is orphaned */
 function isContextValid(): boolean {
   try {
@@ -221,11 +271,23 @@ function isContextValid(): boolean {
   }
 }
 
-/** Notify the service worker that a shortcut was fired (for logging & complex execution) */
-function notifyServiceWorker(shortcutId: string): void {
+/**
+ * Notify the service worker that a shortcut was fired (for logging & complex
+ * execution). When `error` is provided, a locally-handled click/focus action
+ * failed and the service worker logs it as a failure rather than a plain trigger.
+ */
+function notifyServiceWorker(shortcutId: string, error?: string): void {
   if (!isContextValid()) return;
-  chrome.runtime.sendMessage({ type: "SHORTCUT_FIRED", shortcutId }).catch((err: unknown) => {
-    console.debug("[Browser Automata] SHORTCUT_FIRED send failed (service worker may not be ready):", err);
+  const message: { type: "SHORTCUT_FIRED"; shortcutId: string; error?: string } = {
+    type: "SHORTCUT_FIRED",
+    shortcutId,
+  };
+  if (error !== undefined) message.error = error;
+  chrome.runtime.sendMessage(message).catch((err: unknown) => {
+    console.debug(
+      "[Browser Automata] SHORTCUT_FIRED send failed (service worker may not be ready):",
+      err,
+    );
   });
 }
 
@@ -244,7 +306,7 @@ function handleKeyDown(e: KeyboardEvent): void {
   ) {
     console.debug(
       `[Browser Automata] keydown ignored — target is editable:`,
-      (target).tagName,
+      target.tagName,
       target,
     );
     return;
@@ -295,20 +357,24 @@ function handleKeyDown(e: KeyboardEvent): void {
   // State is idle — check for chord starts first, then single combos
   const candidates = findChordCandidates(eventCombo);
   if (candidates.length > 0) {
-    e.preventDefault();
-    e.stopPropagation();
-    chordState = "chord_in_progress";
-    chordBuffer = [eventCombo];
-    chordCandidates = candidates;
-
-    // Check if any candidate is a single-step chord (sequence length 1)
+    // A single-step chord that matches outright is unambiguously the
+    // extension's — suppress the key and run it.
     const completed = findCompletedChord(candidates, 0);
     if (completed !== undefined && candidates.length === 1) {
-      // Only single-step chord candidate — execute immediately
+      e.preventDefault();
+      e.stopPropagation();
       resetChordState();
       executeShortcutAction(completed);
       return;
     }
+
+    // Multi-step chord: this first key is still speculative, so do NOT
+    // preventDefault/stopPropagation — the host page must keep receiving the key
+    // for its own shortcut (e.g. Gmail's "g i"). Suppression begins only once a
+    // subsequent key confirms the chord is ours (the mid-chord branch above).
+    chordState = "chord_in_progress";
+    chordBuffer = [eventCombo];
+    chordCandidates = candidates;
 
     const timeout = getMinChordTimeout(candidates);
     chordTimeout = setTimeout(() => {

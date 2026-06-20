@@ -391,9 +391,13 @@ export function ScriptsView() {
                   </button>
                   <button
                     type="button"
-                    disabled={listRunning === script.id}
+                    // Disable every row's run button while any run is in flight so a
+                    // slow run can't clear a later run's spinner or attach a stale
+                    // result to the wrong row (runs execute one at a time anyway).
+                    disabled={listRunning !== null}
                     onClick={(e) => {
                       e.stopPropagation();
+                      if (listRunning !== null) return;
                       setListRunning(script.id);
                       setListRunResult(null);
                       void runNow(script.id).then((result) => {

@@ -54,22 +54,60 @@ export async function closeTab(tabId: number): Promise<void> {
 
 /**
  * Returns a promise that resolves when the given tab reaches "complete" status.
+ *
+ * Resolves immediately if the tab is already complete (otherwise a navigation
+ * that finished before the listener attached would hang for the full timeout),
+ * and rejects promptly — instead of after a 30s hang — if the tab is closed or
+ * is otherwise unavailable mid-load.
  */
-function waitForTabLoad(tabId: number): Promise<void> {
+function waitForTabLoad(tabId: number, timeoutMs = 30_000): Promise<void> {
   return new Promise<void>((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      chrome.tabs.onUpdated.removeListener(listener);
-      reject(new Error(`Tab ${String(tabId)} load timed out after 30s`));
-    }, 30_000);
+    let settled = false;
 
-    const listener = (updatedTabId: number, changeInfo: chrome.tabs.TabChangeInfo) => {
+    const finish = (action: () => void): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      chrome.tabs.onUpdated.removeListener(onUpdated);
+      chrome.tabs.onRemoved.removeListener(onRemoved);
+      action();
+    };
+
+    const timeout = setTimeout(() => {
+      finish(() => {
+        reject(new Error(`Tab ${String(tabId)} load timed out after ${String(timeoutMs / 1000)}s`));
+      });
+    }, timeoutMs);
+
+    const onUpdated = (updatedTabId: number, changeInfo: chrome.tabs.TabChangeInfo): void => {
       if (updatedTabId === tabId && changeInfo.status === "complete") {
-        clearTimeout(timeout);
-        chrome.tabs.onUpdated.removeListener(listener);
-        resolve();
+        finish(resolve);
       }
     };
 
-    chrome.tabs.onUpdated.addListener(listener);
+    const onRemoved = (removedTabId: number): void => {
+      if (removedTabId === tabId) {
+        finish(() => {
+          reject(new Error(`Tab ${String(tabId)} was closed before it finished loading`));
+        });
+      }
+    };
+
+    chrome.tabs.onUpdated.addListener(onUpdated);
+    chrome.tabs.onRemoved.addListener(onRemoved);
+
+    // The tab may already be "complete" (e.g. the navigation finished before the
+    // listener attached). Resolve immediately, and reject promptly if the tab is
+    // gone rather than letting the unhandled rejection hang until the timeout.
+    chrome.tabs.get(tabId).then(
+      (tab) => {
+        if (tab.status === "complete") finish(resolve);
+      },
+      (err: unknown) => {
+        finish(() => {
+          reject(err instanceof Error ? err : new Error(`Tab ${String(tabId)} is not available`));
+        });
+      },
+    );
   });
 }

@@ -10,6 +10,14 @@
 const TOAST_ATTR = "data-ba-toast";
 const TOAST_Z_INDEX = "2147483647";
 
+/**
+ * Safety cap for key-release toasts. They are normally dismissed by the
+ * caller's `keyup` handler, but a missed keyup (focus moved to a cross-origin
+ * iframe, key released while the page is unfocused) would otherwise leave the
+ * toast on screen forever. This bounds how long it can linger.
+ */
+const KEY_RELEASE_SAFETY_MS = 10_000;
+
 // ─── Theme (matches selector-widget palette) ────────────────────────────────
 
 const BG = "rgba(17, 17, 21, 0.95)";
@@ -60,6 +68,13 @@ function ensureStyle(): void {
     [${TOAST_ATTR}][data-ba-toast-hiding] {
       opacity: 0 !important;
       transform: translateY(8px) !important;
+    }
+    [${TOAST_ATTR}][data-ba-toast-error] {
+      border-color: rgba(244, 63, 94, 0.65) !important;
+      background: rgba(40, 16, 22, 0.96) !important;
+    }
+    [${TOAST_ATTR}][data-ba-toast-error] .ba-toast-action {
+      color: #fecdd3 !important;
     }
     [${TOAST_ATTR}] .ba-toast-kbd {
       display: inline-flex !important;
@@ -196,7 +211,8 @@ export function showKeyToast(keyLabel: string, actionName: string): (() => void)
   if (sessionHidden || !toastEnabled) return null;
 
   const wrapper = document.createElement("span");
-  wrapper.style.cssText = "display:flex !important;align-items:center !important;gap:8px !important;overflow:hidden !important;";
+  wrapper.style.cssText =
+    "display:flex !important;align-items:center !important;gap:8px !important;overflow:hidden !important;";
 
   const kbd = document.createElement("span");
   kbd.className = "ba-toast-kbd";
@@ -224,8 +240,17 @@ export function showKeyToast(keyLabel: string, actionName: string): (() => void)
     return null;
   }
 
-  // key_release mode: no timer — caller dismisses via the returned cleanup.
+  // key_release mode: dismissed by the caller's keyup handler, with a safety
+  // timeout so a missed keyup can't leave the toast on screen indefinitely.
+  const safetyTimer = setTimeout(() => {
+    if (!removed) {
+      removed = true;
+      removeToast(toast);
+    }
+  }, KEY_RELEASE_SAFETY_MS);
+
   return () => {
+    clearTimeout(safetyTimer);
     if (!removed) {
       removed = true;
       removeToast(toast);
@@ -246,6 +271,34 @@ export function showInfoToast(message: string): void {
   setTimeout(() => {
     removeToast(toast);
   }, toastDurationMs);
+}
+
+/**
+ * Show a rose-accented error toast. Used to surface a failed action — a
+ * shortcut or flow whose target element was not found — so a silent no-op
+ * always produces visible feedback on the page.
+ *
+ * Unlike {@link showKeyToast} / {@link showInfoToast}, this ignores the
+ * `toastEnabled` setting (which governs routine key-combo confirmations): an
+ * action failure is exactly the signal the user is missing, so it must surface
+ * even when confirmation toasts are off. It still respects a session dismissal
+ * (the user clicking × to silence toasts for this page).
+ */
+export function showErrorToast(message: string): void {
+  if (sessionHidden) return;
+
+  const span = document.createElement("span");
+  span.className = "ba-toast-action";
+  span.textContent = message;
+
+  const toast = createToastElement(span);
+  toast.setAttribute("data-ba-toast-error", "");
+
+  // Errors linger a little longer than info toasts so the message is readable.
+  const duration = Math.max(toastDurationMs, 5000);
+  setTimeout(() => {
+    removeToast(toast);
+  }, duration);
 }
 
 /** Hide all toasts for the remainder of this page session */

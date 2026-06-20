@@ -119,6 +119,23 @@ export async function waitForElement(
 }
 
 /**
+ * Shared state for the network-idle interceptors, stored on a `window`-scoped
+ * sentinel so overlapping `waitForNetworkIdle` calls on the same tab cooperate
+ * instead of capturing each other's patched functions as "originals".
+ */
+interface NetIdleState {
+  pending: number;
+  lastActivity: number;
+  waiters: number;
+  origOpen: XMLHttpRequest["open"];
+  origSend: XMLHttpRequest["send"];
+  origFetch: typeof window.fetch;
+  patchedOpen: XMLHttpRequest["open"];
+  patchedSend: XMLHttpRequest["send"];
+  patchedFetch: typeof window.fetch;
+}
+
+/**
  * Wait for network activity to become idle.
  * Monitors XMLHttpRequest and fetch to track pending requests,
  * resolving when no requests are in flight for a threshold period.
@@ -133,51 +150,82 @@ export async function waitForNetworkIdle(
     func: (timeout: number) => {
       return new Promise<boolean>((resolve) => {
         const IDLE_THRESHOLD = 500;
-        let pendingRequests = 0;
-        let lastActivityTime = Date.now();
+        const SENTINEL = "__baNetIdle";
+        const w = window as unknown as Record<string, NetIdleState | undefined>;
+
+        // Install the fetch/XHR interceptors exactly once per page. Overlapping
+        // waitForNetworkIdle calls on the same tab share one request counter via
+        // this window sentinel; without it a second call would capture the
+        // first call's *patched* functions as its "originals", and after both
+        // cleanups the page's fetch/XHR would be left permanently wrapped.
+        let state = w[SENTINEL];
+        if (!state) {
+          /* eslint-disable @typescript-eslint/unbound-method -- storing prototype methods for monkey-patch & restore */
+          const origOpen = XMLHttpRequest.prototype.open;
+          const origSend = XMLHttpRequest.prototype.send;
+          /* eslint-enable @typescript-eslint/unbound-method */
+          const origFetch = window.fetch;
+
+          const created: NetIdleState = {
+            pending: 0,
+            lastActivity: Date.now(),
+            waiters: 0,
+            origOpen,
+            origSend,
+            origFetch,
+            patchedOpen: origOpen,
+            patchedSend: origSend,
+            patchedFetch: origFetch,
+          };
+
+          const patchedOpen = function (
+            this: XMLHttpRequest,
+            ...args: [string, string | URL, ...unknown[]]
+          ) {
+            this.addEventListener("loadend", () => {
+              created.pending = Math.max(0, created.pending - 1);
+              created.lastActivity = Date.now();
+            });
+            origOpen.apply(this, args as Parameters<typeof origOpen>);
+          } as typeof origOpen;
+
+          const patchedSend = function (
+            this: XMLHttpRequest,
+            ...args: Parameters<typeof origSend>
+          ) {
+            created.pending++;
+            created.lastActivity = Date.now();
+            origSend.apply(this, args);
+          } as typeof origSend;
+
+          const patchedFetch = function (...args: Parameters<typeof origFetch>) {
+            created.pending++;
+            created.lastActivity = Date.now();
+            return origFetch.apply(window, args).finally(() => {
+              created.pending = Math.max(0, created.pending - 1);
+              created.lastActivity = Date.now();
+            });
+          } as typeof origFetch;
+
+          created.patchedOpen = patchedOpen;
+          created.patchedSend = patchedSend;
+          created.patchedFetch = patchedFetch;
+
+          XMLHttpRequest.prototype.open = patchedOpen;
+          XMLHttpRequest.prototype.send = patchedSend;
+          window.fetch = patchedFetch;
+
+          w[SENTINEL] = created;
+          state = created;
+        }
+
+        const active = state;
+        active.waiters++;
         let settled = false;
 
-        // Intercept XMLHttpRequest
-        /* eslint-disable @typescript-eslint/unbound-method -- Storing for monkey-patch & restore */
-        const origXhrOpen = XMLHttpRequest.prototype.open;
-        const origXhrSend = XMLHttpRequest.prototype.send;
-        /* eslint-enable @typescript-eslint/unbound-method */
-
-         
-        XMLHttpRequest.prototype.open = function (
-          this: XMLHttpRequest,
-          ...args: [string, string | URL, ...unknown[]]
-        ) {
-          this.addEventListener("loadend", () => {
-            pendingRequests = Math.max(0, pendingRequests - 1);
-            lastActivityTime = Date.now();
-          });
-          origXhrOpen.apply(this, args as Parameters<typeof origXhrOpen>);
-        } as typeof origXhrOpen;
-
-        XMLHttpRequest.prototype.send = function (
-          this: XMLHttpRequest,
-          ...args: Parameters<typeof origXhrSend>
-        ) {
-          pendingRequests++;
-          lastActivityTime = Date.now();
-          origXhrSend.apply(this, args);
-        };
-
-        // Intercept fetch
-        const origFetch = window.fetch;
-        window.fetch = function (...args: Parameters<typeof origFetch>) {
-          pendingRequests++;
-          lastActivityTime = Date.now();
-          return origFetch.apply(this, args).finally(() => {
-            pendingRequests = Math.max(0, pendingRequests - 1);
-            lastActivityTime = Date.now();
-          });
-        };
-
         const timer = window.setInterval(() => {
-          const elapsed = Date.now() - lastActivityTime;
-          if (pendingRequests === 0 && elapsed >= IDLE_THRESHOLD) {
+          const elapsed = Date.now() - active.lastActivity;
+          if (active.pending === 0 && elapsed >= IDLE_THRESHOLD) {
             cleanup(true);
           }
         }, 100);
@@ -191,10 +239,24 @@ export async function waitForNetworkIdle(
           settled = true;
           window.clearInterval(timer);
           window.clearTimeout(deadline);
-          // Restore originals
-          XMLHttpRequest.prototype.open = origXhrOpen;
-          XMLHttpRequest.prototype.send = origXhrSend;
-          window.fetch = origFetch;
+          active.waiters = Math.max(0, active.waiters - 1);
+          // Only the last waiter restores the originals, and only if our patched
+          // functions are still the current references — never clobber a wrapper
+          // some other code installed on top of ours.
+          if (active.waiters === 0) {
+            if (window.fetch === active.patchedFetch) {
+              window.fetch = active.origFetch;
+            }
+            if (XMLHttpRequest.prototype.open === active.patchedOpen) {
+              XMLHttpRequest.prototype.open = active.origOpen;
+            }
+            if (XMLHttpRequest.prototype.send === active.patchedSend) {
+              XMLHttpRequest.prototype.send = active.origSend;
+            }
+            // Clear the sentinel so the next call re-installs from real originals
+            // (assigning undefined rather than `delete` per no-dynamic-delete).
+            w[SENTINEL] = undefined;
+          }
           resolve(result);
         }
       });

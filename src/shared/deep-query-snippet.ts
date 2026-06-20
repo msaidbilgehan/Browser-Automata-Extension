@@ -46,13 +46,8 @@ if(typeof __qsaDeep==='undefined'){
     root=root||document;
     var out=[];
     if(__isXP(sel)){
+      // document.evaluate can't cross shadow roots & absolute XPath ignores its context — eval once.
       var xm=__xpAll(sel,root);for(var xi=0;xi<xm.length;xi++)out.push(xm[xi]);
-      var xa=root.querySelectorAll('*');
-      for(var xj=0;xj<xa.length;xj++){if(xa[xj].shadowRoot){
-        var xsr=xa[xj].shadowRoot;
-        var xsm=__xpAll(sel,xsr);for(var xk=0;xk<xsm.length;xk++)out.push(xsm[xk]);
-        var xin=__qsaDeep(sel,xsr);for(var xl=0;xl<xin.length;xl++)out.push(xin[xl]);
-      }}
       return out;
     }
     try{var m=root.querySelectorAll(sel);for(var i=0;i<m.length;i++)out.push(m[i]);}catch(e){}
@@ -70,12 +65,8 @@ if(typeof __qsaDeep==='undefined'){
   function __qsDeep(sel,root){
     root=root||document;
     if(__isXP(sel)){
-      var xm=__xpFirst(sel,root);if(xm)return xm;
-      var xa=root.querySelectorAll('*');
-      for(var xi=0;xi<xa.length;xi++){if(xa[xi].shadowRoot){
-        var found=__qsDeep(sel,xa[xi].shadowRoot);if(found)return found;
-      }}
-      return null;
+      // XPath can't reach shadow DOM — evaluate once against this root.
+      return __xpFirst(sel,root);
     }
     try{var m=root.querySelector(sel);if(m)return m;}catch(e){}
     var all=root.querySelectorAll('*');
@@ -156,15 +147,9 @@ export function inlineDeepQueryAll(
   const out: Element[] = [];
 
   if (isXPathSelector(selector)) {
+    // document.evaluate can't cross shadow boundaries & absolute XPath ignores
+    // its context node — evaluate once instead of re-scanning per shadow host.
     for (const el of xpathEvalAll(selector, searchRoot)) out.push(el);
-    const allElements = searchRoot.querySelectorAll("*");
-    for (const el of allElements) {
-      if (el.shadowRoot !== null) {
-        for (const sel of xpathEvalAll(selector, el.shadowRoot)) out.push(sel);
-        const inner = inlineDeepQueryAll(selector, el.shadowRoot);
-        for (const el2 of inner) out.push(el2);
-      }
-    }
     return out;
   }
 
@@ -204,16 +189,8 @@ export function inlineDeepQuery(
   const searchRoot: Document | ShadowRoot = root ?? document;
 
   if (isXPathSelector(selector)) {
-    const match = xpathEvalFirst(selector, searchRoot);
-    if (match !== null) return match;
-    const allElements = searchRoot.querySelectorAll("*");
-    for (const el of allElements) {
-      if (el.shadowRoot !== null) {
-        const found = inlineDeepQuery(selector, el.shadowRoot);
-        if (found !== null) return found;
-      }
-    }
-    return null;
+    // XPath cannot reach shadow DOM (see inlineDeepQueryAll) — evaluate once.
+    return xpathEvalFirst(selector, searchRoot);
   }
 
   try {

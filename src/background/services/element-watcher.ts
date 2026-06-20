@@ -6,10 +6,26 @@ interface WatcherEntry {
   tabId: number;
   selector: string;
   callback: (found: boolean) => void;
+  /** Last reported presence — used to fire the callback only on a real change. */
+  lastFound: boolean;
 }
 
 /** Registry of active watchers keyed by watch ID */
 const activeWatchers = new Map<string, WatcherEntry>();
+
+/**
+ * Invoke a watcher's callback only when the element's presence actually changes.
+ *
+ * The callback used to fire both from the injection result and the first
+ * mutation message — a double `callback(true)`. Edge-detecting here means the
+ * callback fires once per real transition no matter how many (possibly
+ * redundant) update messages the page observer sends.
+ */
+function reportFound(entry: WatcherEntry, found: boolean): void {
+  if (found === entry.lastFound) return;
+  entry.lastFound = found;
+  entry.callback(found);
+}
 
 /**
  * Start watching for an element matching `selector` on the given tab.
@@ -23,24 +39,18 @@ export function startWatching(
 ): string {
   const watchId: string = generateId();
 
-  const entry: WatcherEntry = { watchId, tabId, selector, callback };
+  const entry: WatcherEntry = { watchId, tabId, selector, callback, lastFound: false };
   activeWatchers.set(watchId, entry);
 
-  // Inject the observer script into the tab
+  // Inject the observer script into the tab. The "found" signal is driven solely
+  // by the message channel below (the injected observer sends an initial message
+  // when the element already exists, then one per change), so the injection
+  // result is not used to fire the callback — that previously double-fired.
   void chrome.scripting
     .executeScript({
       target: { tabId },
       func: injectMutationObserver,
       args: [selector, watchId],
-    })
-    .then((results) => {
-      const first = results[0];
-      if (first?.result === true) {
-        const watcher = activeWatchers.get(watchId);
-        if (watcher) {
-          watcher.callback(true);
-        }
-      }
     })
     .catch((err: unknown) => {
       console.debug("[Browser Automata] Element watcher injection failed (tab may be closed):", err);
@@ -52,7 +62,7 @@ export function startWatching(
     if (message.type === "ELEMENT_WATCHER_UPDATE" && message.watchId === watchId) {
       const watcher = activeWatchers.get(watchId);
       if (watcher) {
-        watcher.callback(message.found);
+        reportFound(watcher, message.found);
       }
     }
   };
@@ -118,12 +128,16 @@ const watcherListeners = new Map<
 
 /**
  * Injected into the page. Sets up a MutationObserver watching for `selector`.
- * Sends a message back to the extension when the element is found or removed.
- * Returns true immediately if the element already exists.
+ * Sends a message to the extension when the element is present or removed —
+ * including an immediate message if it already exists — so the "found" signal is
+ * driven entirely by the message channel (not the injection return value).
+ *
+ * Self-removes on `pagehide`: the observer and its debounce timer are torn down
+ * when the page is unloaded so a long-lived SPA does not keep an orphaned
+ * observer posting updates to a watcher the service worker has already deleted.
  */
-function injectMutationObserver(selector: string, watchId: string): boolean {
+function injectMutationObserver(selector: string, watchId: string): void {
   const qsDeep = inlineDeepQuery;
-  const existing = qsDeep(selector);
 
   // Store the observer on window so we can disconnect later
   const observerKey = `__ba_watcher_${watchId}`;
@@ -151,7 +165,30 @@ function injectMutationObserver(selector: string, watchId: string): boolean {
 
   (window as unknown as Record<string, unknown>)[observerKey] = observer;
 
-  return existing !== null;
+  // Tear down on page unload so the observer/timer do not outlive the page and
+  // keep messaging a deleted watcher (SPA soft-navigations included).
+  window.addEventListener(
+    "pagehide",
+    () => {
+      observer.disconnect();
+      if (debounceTimer !== null) {
+        clearTimeout(debounceTimer);
+        debounceTimer = null;
+      }
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+      delete (window as unknown as Record<string, unknown>)[observerKey];
+    },
+    { once: true },
+  );
+
+  // Report the initial state immediately if the element is already present.
+  if (qsDeep(selector) !== null) {
+    void chrome.runtime.sendMessage({
+      type: "ELEMENT_WATCHER_UPDATE",
+      watchId,
+      found: true,
+    });
+  }
 }
 
 /**

@@ -15,6 +15,7 @@ export async function handleSettingsUpdate(partial: Partial<Settings>): Promise<
     execution: { ...current.execution, ...partial.execution },
     feedback: { ...current.feedback, ...partial.feedback },
     quickRun: { ...current.quickRun, ...partial.quickRun },
+    quickTip: { ...current.quickTip, ...partial.quickTip },
     notifications: { ...current.notifications, ...partial.notifications },
   };
 

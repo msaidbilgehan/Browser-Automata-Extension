@@ -5,7 +5,11 @@ import type { ClipboardEntry, EntityId } from "@/shared/types/entities";
 
 /**
  * Add a clipboard entry to the circular buffer.
- * Non-pinned entries are trimmed when over the max limit.
+ *
+ * The total history is capped at `MAX_CLIPBOARD_ENTRIES`. Pinned entries take
+ * priority over unpinned ones, but the cap is absolute: if pinned entries alone
+ * exceed the limit, the oldest pinned entries are evicted too, so the buffer can
+ * never grow without bound.
  */
 export async function addClipboardEntry(
   entry: Omit<ClipboardEntry, "id" | "timestamp">,
@@ -23,12 +27,17 @@ export async function addClipboardEntry(
       const pinned = updated.filter((e) => e.pinned);
       const unpinned = updated.filter((e) => !e.pinned);
 
-      // Trim oldest non-pinned entries when over the limit
-      const maxUnpinned = DEFAULTS.MAX_CLIPBOARD_ENTRIES - pinned.length;
-      const trimmedUnpinned =
-        unpinned.length > maxUnpinned ? unpinned.slice(unpinned.length - maxUnpinned) : unpinned;
+      const max = DEFAULTS.MAX_CLIPBOARD_ENTRIES;
 
-      return [...pinned, ...trimmedUnpinned];
+      // Pinned entries are kept first, but bounded by the absolute cap (newest win).
+      const cappedPinned = pinned.length > max ? pinned.slice(pinned.length - max) : pinned;
+
+      // Fill any remaining slots with the newest unpinned entries.
+      const remaining = max - cappedPinned.length;
+      const cappedUnpinned =
+        remaining > 0 ? unpinned.slice(Math.max(0, unpinned.length - remaining)) : [];
+
+      return [...cappedPinned, ...cappedUnpinned];
     },
     [],
   );

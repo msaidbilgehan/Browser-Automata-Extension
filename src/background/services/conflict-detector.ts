@@ -2,8 +2,14 @@ import { localStore } from "@/shared/storage";
 import type { KeyCombo, Shortcut } from "@/shared/types/entities";
 import { scopesOverlap } from "@/shared/url-pattern";
 
-/** Known browser keyboard shortcuts that should trigger warnings */
-const BROWSER_SHORTCUTS: string[] = [
+/**
+ * Known browser keyboard shortcuts that should trigger warnings.
+ *
+ * Single shared source of truth — also imported by the popup's
+ * `use-key-combo-conflicts` hook so the two paths cannot drift apart.
+ * Single-character keys are upper-cased here to match `serializeKeyCombo`.
+ */
+export const BROWSER_SHORTCUTS: readonly string[] = [
   "Ctrl+T",
   "Ctrl+W",
   "Ctrl+N",
@@ -35,14 +41,22 @@ export interface ConflictWarning {
   conflictingShortcutId?: string;
 }
 
-/** Serialize a KeyCombo to a human-readable string for comparison */
+/**
+ * Serialize a KeyCombo to a human-readable string for comparison.
+ *
+ * Single printable characters are upper-cased so the result matches the
+ * entries in {@link BROWSER_SHORTCUTS} (e.g. "Ctrl+S"). The DOM `e.key` for an
+ * un-shifted letter is lowercase ("s"), which previously serialized to
+ * "Ctrl+s" and never matched the warning list — so letter-key browser-shortcut
+ * conflicts were never reported. Named keys (Tab, F5, …) are left untouched.
+ */
 export function serializeKeyCombo(combo: KeyCombo): string {
   const parts: string[] = [];
   if (combo.ctrlKey) parts.push("Ctrl");
   if (combo.altKey) parts.push("Alt");
   if (combo.shiftKey) parts.push("Shift");
   if (combo.metaKey) parts.push("Meta");
-  parts.push(combo.key);
+  parts.push(combo.key.length === 1 ? combo.key.toUpperCase() : combo.key);
   return parts.join("+");
 }
 

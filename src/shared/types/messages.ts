@@ -36,6 +36,12 @@ export interface ContentReadyMessage {
 export interface ShortcutFiredMessage {
   type: "SHORTCUT_FIRED";
   shortcutId: EntityId;
+  /**
+   * Set by the content script when a locally-handled action (click / focus)
+   * could not complete — e.g. the selector matched no element. Lets the service
+   * worker record the failure instead of logging a misleading bare "triggered".
+   */
+  error?: string;
 }
 
 export interface ElementPickedMessage {
@@ -490,6 +496,16 @@ export interface UpdateQuickTipShortcutsMessage {
   shortcuts: Shortcut[];
 }
 
+// ─── Service Worker → Content Script (Toast) ────────────────────────────────
+
+export interface ShowToastMessage {
+  type: "SHOW_TOAST";
+  /** Visual severity — errors are rose-accented and linger longer. */
+  level: "info" | "error";
+  /** Text to display on the page. */
+  message: string;
+}
+
 // ─── Service Worker → Content Script (Quick Run) ────────────────────────────
 
 export interface UpdateQuickRunActionsMessage {
@@ -624,7 +640,8 @@ export type SWToContentMessage =
   | TestSelectorMessage
   | ClearTestHighlightMessage
   | UpdateQuickRunActionsMessage
-  | UpdateQuickTipShortcutsMessage;
+  | UpdateQuickTipShortcutsMessage
+  | ShowToastMessage;
 
 /** All messages */
 export type Message = PopupToSWMessage | ContentToSWMessage | SWToContentMessage;

@@ -158,7 +158,7 @@ async function dispatchMessage(
     }
 
     case "SHORTCUT_FIRED":
-      await handleShortcutExecution(message.shortcutId, sender);
+      await handleShortcutExecution(message.shortcutId, sender, message.error);
       return undefined;
 
     // ─── Phase 3: Flow messages ────────────────────────────────────────
@@ -469,6 +469,7 @@ async function dispatchMessage(
     case "CLEAR_TEST_HIGHLIGHT":
     case "UPDATE_QUICK_RUN_ACTIONS":
     case "UPDATE_QUICK_TIP_SHORTCUTS":
+    case "SHOW_TOAST":
       // These are SW → content messages, not handled here
       return undefined;
 

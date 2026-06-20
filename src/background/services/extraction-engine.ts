@@ -2,7 +2,7 @@ import { localStore, syncStore } from "@/shared/storage";
 import { matchUrl } from "@/shared/url-pattern/matcher";
 import { appendLogEntry } from "@/background/handlers/log-handler";
 import type { EntityId, ExtractionRule, ExtractionOutputAction, ExtractionTrigger } from "@/shared/types/entities";
-import { injectResultWidget, buildResultPageHtml } from "@/shared/result-display";
+import { injectResultWidget } from "@/shared/result-display";
 
 /** Validate extraction fields: each must have a non-empty name and selector. Returns only valid fields. */
 function validateFields<T extends { name: string; selector: string }>(
@@ -291,12 +291,18 @@ export async function processOutputActions(
 }
 
 /**
- * Open a new tab and write extraction results into it.
- * Used by both popup (via EXTRACTION_SHOW_TAB message) and background output actions.
+ * Open the extension's result page for a set of extraction results.
+ * Used by both the popup (via EXTRACTION_SHOW_TAB message) and background
+ * output actions.
  *
- * Stores the pre-built HTML in chrome.storage.session, then opens the extension's
- * dedicated results page which reads and renders it. This avoids the MV3 issue
- * where chrome.scripting.executeScript fails on about:blank tabs.
+ * Stores the raw result fields in chrome.storage.session, then opens the
+ * extension's dedicated results page, which builds and renders the page and
+ * wires its Copy/Download buttons from a bundled module script. We store
+ * structured fields (not pre-built HTML) so the results module is the single
+ * source of both the markup and the button behaviour, and so no inline script
+ * — forbidden by the extension page's MV3 CSP — is ever involved. This also
+ * avoids the MV3 issue where chrome.scripting.executeScript fails on
+ * about:blank tabs.
  */
 export async function openResultTab(
   formatted: string,
@@ -305,16 +311,47 @@ export async function openResultTab(
   name: string,
   active = false,
 ): Promise<void> {
-  const html = buildResultPageHtml(formatted, format, rowCount, name);
-
-  // Store the result HTML in session storage for the results page to read
+  // Store the structured result for the results page to read and render.
   await chrome.storage.session.set({
-    _resultPageData: { html, timestamp: Date.now() },
+    _resultPageData: { formatted, format, rowCount, name, timestamp: Date.now() },
   });
 
   // Open the extension's dedicated result viewer page
   const resultUrl = chrome.runtime.getURL("src/results/index.html");
   await chrome.tabs.create({ active, url: resultUrl });
+}
+
+/** Coerce an arbitrary cell value to a string (non-strings are JSON-encoded). */
+function cellToString(value: unknown): string {
+  return typeof value === "string" ? value : JSON.stringify(value ?? "");
+}
+
+/** Escape a string for safe inclusion in an HTML or XML text node. */
+function escapeMarkup(value: unknown): string {
+  return cellToString(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** Escape a string for a Markdown table cell ("|" splits cells; a newline breaks the row). */
+function escapeMarkdownCell(value: unknown): string {
+  return cellToString(value)
+    .replace(/\\/g, "\\\\")
+    .replace(/\|/g, "\\|")
+    .replace(/\r?\n/g, " ");
+}
+
+/**
+ * Convert an arbitrary field key into a valid XML element name. Characters
+ * invalid in an XML Name become "_"; a name that would otherwise start with a
+ * digit, "-", or "." is prefixed with "_" so the document stays well-formed.
+ */
+function toXmlName(key: string): string {
+  const sanitized = key.replace(/[^A-Za-z0-9_.-]/g, "_");
+  return /^[A-Za-z_]/.test(sanitized) ? sanitized : `_${sanitized}`;
 }
 
 /**
@@ -353,16 +390,10 @@ export function formatResults(
       const firstRow = data[0];
       if (!firstRow) return "";
       const headers = Object.keys(firstRow);
-      const headerLine = `| ${headers.join(" | ")} |`;
+      const headerLine = `| ${headers.map(escapeMarkdownCell).join(" | ")} |`;
       const separatorLine = `| ${headers.map(() => "---").join(" | ")} |`;
       const rows = data.map(
-        (row) =>
-          `| ${headers
-            .map((h) => {
-              const v = row[h];
-              return typeof v === "string" ? v : JSON.stringify(v ?? "");
-            })
-            .join(" | ")} |`,
+        (row) => `| ${headers.map((h) => escapeMarkdownCell(row[h])).join(" | ")} |`,
       );
       return [headerLine, separatorLine, ...rows].join("\n");
     }
@@ -372,16 +403,11 @@ export function formatResults(
       const firstRow = data[0];
       if (!firstRow) return "<table></table>";
       const headers = Object.keys(firstRow);
-      const headerHtml = `<tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr>`;
+      const headerHtml = `<tr>${headers.map((h) => `<th>${escapeMarkup(h)}</th>`).join("")}</tr>`;
       const rowsHtml = data
         .map(
           (row) =>
-            `<tr>${headers
-              .map((h) => {
-                const v = row[h];
-                return `<td>${typeof v === "string" ? v : JSON.stringify(v ?? "")}</td>`;
-              })
-              .join("")}</tr>`,
+            `<tr>${headers.map((h) => `<td>${escapeMarkup(row[h])}</td>`).join("")}</tr>`,
         )
         .join("");
       return `<table>${headerHtml}${rowsHtml}</table>`;
@@ -396,8 +422,8 @@ export function formatResults(
         .map((row) => {
           const fields = Object.entries(row)
             .map(([key, val]) => {
-              const s = typeof val === "string" ? val : JSON.stringify(val ?? "");
-              return `  <${key}>${s}</${key}>`;
+              const tag = toXmlName(key);
+              return `  <${tag}>${escapeMarkup(val)}</${tag}>`;
             })
             .join("\n");
           return `<row>\n${fields}\n</row>`;

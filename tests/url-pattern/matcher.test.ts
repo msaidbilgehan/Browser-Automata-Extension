@@ -55,6 +55,15 @@ describe("matchUrl — exact matching", () => {
     expect(matchUrl(exact("git.com"), "https://github.com")).toBe(false);
   });
 
+  it("matches case-insensitively (mixed-case pattern value)", () => {
+    expect(matchUrl(exact("GitHub.com"), "https://github.com/user")).toBe(true);
+    expect(matchUrl(exact("GITHUB.COM"), "https://github.com")).toBe(true);
+  });
+
+  it("trims surrounding whitespace from the pattern value", () => {
+    expect(matchUrl(exact("  github.com  "), "https://github.com")).toBe(true);
+  });
+
   it("returns false for an invalid URL", () => {
     expect(matchUrl(exact("github.com"), "not-a-url")).toBe(false);
   });
@@ -188,6 +197,50 @@ describe("matchUrl — glob matching", () => {
     });
   });
 
+  // Regression coverage for H3: a bare-host glob (no path component) must match
+  // real http(s) URLs, whose pathname is always at least "/". These patterns
+  // previously matched nothing because the regex was anchored against
+  // hostname+pathname with no path segment to absorb the trailing "/…".
+  describe("bare-host glob (no path component)", () => {
+    it("matches a wildcard-subdomain host against a URL with a path", () => {
+      expect(
+        matchUrl(glob("*.youtube.com"), "https://www.youtube.com/watch?v=abc"),
+      ).toBe(true);
+    });
+
+    it("matches the bare apex domain of a wildcard-subdomain host", () => {
+      expect(matchUrl(glob("*.youtube.com"), "https://youtube.com/")).toBe(true);
+    });
+
+    it("matches a wildcard-subdomain host against the root URL", () => {
+      expect(matchUrl(glob("*.youtube.com"), "https://m.youtube.com")).toBe(true);
+    });
+
+    it("matches a plain host glob against a URL with a path", () => {
+      expect(matchUrl(glob("github.com"), "https://github.com/user/repo")).toBe(
+        true,
+      );
+    });
+
+    it("strips a protocol prefix on a bare-host glob", () => {
+      expect(
+        matchUrl(glob("*://*.github.com"), "https://docs.github.com/page"),
+      ).toBe(true);
+    });
+
+    it("does NOT match a different domain", () => {
+      expect(
+        matchUrl(glob("*.youtube.com"), "https://www.vimeo.com/watch"),
+      ).toBe(false);
+    });
+
+    it("does NOT match a suffix-confusion lookalike domain", () => {
+      expect(
+        matchUrl(glob("*.youtube.com"), "https://notyoutube.com/watch"),
+      ).toBe(false);
+    });
+  });
+
   describe("protocol-prefixed glob patterns", () => {
     it("strips *:// protocol prefix and matches correctly", () => {
       expect(
@@ -236,6 +289,38 @@ describe("matchUrl — glob matching", () => {
 
   it("returns false for an invalid URL", () => {
     expect(matchUrl(glob("*.github.com"), "not-a-url")).toBe(false);
+  });
+
+  describe("comma-separated multi-patterns", () => {
+    it("matches the first segment", () => {
+      expect(
+        matchUrl(glob("*.youtube.com/*,*.vimeo.com/*"), "https://www.youtube.com/watch?v=abc"),
+      ).toBe(true);
+    });
+
+    it("matches a later segment", () => {
+      expect(
+        matchUrl(glob("*.youtube.com/*,*.vimeo.com/*"), "https://player.vimeo.com/video/123"),
+      ).toBe(true);
+    });
+
+    it("does NOT match a domain in no segment", () => {
+      expect(
+        matchUrl(glob("*.youtube.com/*,*.vimeo.com/*"), "https://www.dailymotion.com/video"),
+      ).toBe(false);
+    });
+
+    it("tolerates whitespace around segments", () => {
+      expect(
+        matchUrl(glob("*.youtube.com/* , *.vimeo.com/*"), "https://player.vimeo.com/video/123"),
+      ).toBe(true);
+    });
+
+    it("matches comma segments that carry a protocol prefix", () => {
+      expect(
+        matchUrl(glob("*://*.youtube.com/*,https://*.vimeo.com/*"), "https://vimeo.com/123"),
+      ).toBe(true);
+    });
   });
 });
 

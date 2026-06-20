@@ -207,8 +207,15 @@ export function injectResultWidget(
 }
 
 /**
- * Build the full HTML string for a result page.
- * Runs in the service worker (no DOM access needed).
+ * Build the full HTML string for the extension's result page.
+ *
+ * Pure string construction (no DOM access). The page is served from the
+ * extension origin, so it runs under the MV3 extension CSP (`script-src 'self'`)
+ * which forbids inline scripts — this function therefore emits **no** inline
+ * `<script>`. The Copy/Download buttons (`#copy-btn` / `#download-btn`) are
+ * wired up by the bundled results module (`src/results/main.ts`), which CSP
+ * permits. Emitting no script also removes the `</script>`-injection surface
+ * that a serialized payload would otherwise create.
  */
 export function buildResultPageHtml(
   formatted: string,
@@ -306,54 +313,8 @@ export function buildResultPageHtml(
       <pre>${escaped}</pre>
     </div>
   </div>
-  <script>
-    const formatted = ${JSON.stringify(formatted)};
-    const format = ${JSON.stringify(format)};
-    const name = ${JSON.stringify(name)};
-
-    document.getElementById('copy-btn').addEventListener('click', function() {
-      const btn = this;
-      navigator.clipboard.writeText(formatted).then(function() {
-        btn.textContent = 'Copied!';
-        btn.classList.add('copied');
-        setTimeout(function() {
-          btn.textContent = 'Copy to Clipboard';
-          btn.classList.remove('copied');
-        }, 2000);
-      });
-    });
-
-    document.getElementById('download-btn').addEventListener('click', function() {
-      var ext = { json: 'json', csv: 'csv', markdown: 'md', html: 'html', text: 'txt', xml: 'xml' };
-      var mime = { json: 'application/json', csv: 'text/csv', markdown: 'text/markdown', html: 'text/html', text: 'text/plain', xml: 'application/xml' };
-      var safeName = (name || 'extraction').replace(/[^a-zA-Z0-9_-]/g, '_');
-      var blob = new Blob([formatted], { type: mime[format] || 'text/plain' });
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement('a');
-      a.href = url;
-      a.download = safeName + '.' + (ext[format] || 'txt');
-      a.click();
-      URL.revokeObjectURL(url);
-    });
-  </script>
 </body>
 </html>`;
 
   return html;
-}
-
-/**
- * Write extraction results into the current document (for about:blank tabs).
- * Called via `chrome.scripting.executeScript({ func: writeResultPage, args: [...] })`.
- */
-export function writeResultPage(
-  formatted: string,
-  format: string,
-  rowCount: number,
-  name: string,
-): void {
-  const html = buildResultPageHtml(formatted, format, rowCount, name);
-  document.open();
-  document.write(html);
-  document.close();
 }

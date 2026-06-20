@@ -27,10 +27,15 @@ export function matchUrl(pattern: UrlPattern, url: string): boolean {
 /**
  * Exact domain match — compares hostname only.
  * Pattern value should be a hostname like "github.com".
+ *
+ * Hostnames are case-insensitive, and `URL.hostname` is already lower-cased,
+ * so the (possibly mixed-case) user-entered pattern value is normalised the
+ * same way before comparison. This keeps the runtime match path in agreement
+ * with `extractPatternDomains`, which also lower-cases exact values.
  */
 function matchExact(patternValue: string, url: string): boolean {
   const hostname = extractHostname(url);
-  return hostname === patternValue;
+  return hostname === patternValue.trim().toLowerCase();
 }
 
 /**
@@ -39,20 +44,34 @@ function matchExact(patternValue: string, url: string): boolean {
  *   "*.github.com" — matches any subdomain
  *   "github.com/user/*" — matches paths under /user/
  *   "*.example.com/*" — matches any subdomain + any path
+ *   "*.youtube.com/*,*.vimeo.com/*" — comma-separated multi-pattern (matches either)
+ *
+ * A pattern may contain several comma-separated segments; the URL matches if
+ * *any* segment matches. This mirrors `extractPatternDomains`, which splits on
+ * commas for the analysis/conflict path — both paths must agree by construction.
  */
 function matchGlob(patternValue: string, url: string): boolean {
-  // Strip protocol prefix (e.g. "*://", "https://") before converting to regex,
-  // because we match against hostname+pathname which has no protocol.
-  const protoIdx = patternValue.indexOf("://");
-  const stripped = protoIdx !== -1 ? patternValue.slice(protoIdx + 3) : patternValue;
-
-  const regex = globToRegex(stripped);
-  // Match against hostname + pathname
+  // Match against hostname + pathname (no protocol component).
   const parsed = safeParseUrl(url);
   if (!parsed) return false;
+  const hostPath = parsed.hostname + parsed.pathname;
 
-  const target = parsed.hostname + parsed.pathname;
-  return regex.test(target);
+  return patternValue.split(",").some((segment) => {
+    const trimmed = segment.trim();
+    if (trimmed === "") return false;
+    // Strip protocol prefix (e.g. "*://", "https://") before converting to regex.
+    const protoIdx = trimmed.indexOf("://");
+    const stripped = protoIdx !== -1 ? trimmed.slice(protoIdx + 3) : trimmed;
+    // A host-only segment (no path component, e.g. "*.youtube.com" or
+    // "github.com") is matched against the hostname alone. Its `^…$` anchors
+    // would otherwise never match `hostname + pathname` — every real http(s)
+    // URL has a pathname of at least "/", with no path component in the segment
+    // to absorb it. This matches the documented behaviour ("*.youtube.com"
+    // matching "https://www.youtube.com/watch"). Segments with a path component
+    // keep matching against the full hostname+pathname.
+    const target = stripped.includes("/") ? hostPath : parsed.hostname;
+    return globToRegex(stripped).test(target);
+  });
 }
 
 /**

@@ -26,6 +26,25 @@ export async function isNotificationsEnabled(): Promise<boolean> {
   return notifications.enabled;
 }
 
+/**
+ * Best-effort on-page toast in a specific tab. Surfaces a failure where the user
+ * is actually looking — the page — for actions run from the service worker
+ * (flows, inline scripts triggered by shortcuts). Silently ignores tabs without
+ * a live content script (chrome://, the web store, a tab closed mid-run), where
+ * the activity log remains the record of the failure.
+ */
+export async function notifyPageToast(
+  tabId: number,
+  message: string,
+  level: "info" | "error" = "error",
+): Promise<void> {
+  try {
+    await chrome.tabs.sendMessage(tabId, { type: "SHOW_TOAST", level, message });
+  } catch {
+    // No reachable content script — nothing to surface on the page.
+  }
+}
+
 /** Send a Chrome notification for a background error. Respects the global notifications toggle. */
 export async function notifyError(title: string, message: string): Promise<void> {
   if (!(await isNotificationsEnabled())) return;

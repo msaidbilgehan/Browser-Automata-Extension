@@ -1,6 +1,6 @@
 import { localStore, syncStore } from "@/shared/storage";
 import { matchUrl } from "@/shared/url-pattern/matcher";
-import { sortBySpecificity } from "@/shared/url-pattern/specificity";
+import { compareSpecificity } from "@/shared/url-pattern/specificity";
 import { appendLogEntry } from "@/background/handlers/log-handler";
 import type { Script, EntityId } from "@/shared/types/entities";
 import type { ScriptRunResult } from "@/shared/types/script-run";
@@ -24,7 +24,15 @@ export async function getMatchingScripts(
     (s) => s.enabled && s.trigger === trigger && matchUrl(s.scope, url),
   );
 
-  return sortBySpecificity(matching).sort((a, b) => a.priority - b.priority);
+  // Order by specificity first (most specific scope wins), then by priority as
+  // a tiebreaker (lower priority value runs first). This must be a single
+  // comparator: a separate trailing `.sort()` by priority would re-order the
+  // whole array and demote specificity to a mere same-priority tiebreaker —
+  // inverting the intended primary/secondary keys.
+  return [...matching].sort((a, b) => {
+    const bySpecificity = compareSpecificity(b.scope, a.scope);
+    return bySpecificity !== 0 ? bySpecificity : a.priority - b.priority;
+  });
 }
 
 /**

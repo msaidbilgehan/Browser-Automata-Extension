@@ -15,12 +15,27 @@ export function getSpecificity(pattern: UrlPattern): number {
     case "exact":
       return 100;
     case "glob":
-      return pattern.value.startsWith("*") ? 60 : 80;
+      return hasHostWildcard(pattern.value) ? 60 : 80;
     case "regex":
       return 40;
     case "global":
       return 0;
   }
+}
+
+/**
+ * Detect a wildcard in the host segment of a glob pattern.
+ *
+ * The protocol prefix (`*://`, `https://`, …) is stripped first so that
+ * `*://*.github.com/*` and `https://*.github.com/*` are ranked identically —
+ * both are host-wildcarded. A wildcard that appears only in the path (e.g.
+ * `github.com/*`) does not count as a host wildcard.
+ */
+function hasHostWildcard(value: string): boolean {
+  const protoIdx = value.indexOf("://");
+  const afterProto = protoIdx !== -1 ? value.slice(protoIdx + 3) : value;
+  const hostSegment = afterProto.split("/")[0] ?? "";
+  return hostSegment.includes("*");
 }
 
 /**

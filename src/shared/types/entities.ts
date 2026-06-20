@@ -419,6 +419,13 @@ export interface RetryPolicy {
   maxRetries: number;
   delayMs: number;
   backoffMultiplier: number;
+  /**
+   * Upper bound (ms) on a single backoff delay. Without it, exponential growth
+   * (`delayMs * multiplier ^ attempt`) is unbounded — e.g. 1000ms × 10⁸ ≈ 2.8h,
+   * far longer than the MV3 service worker survives, so the retry would never
+   * actually fire. Defaults to {@link DEFAULT_MAX_RETRY_DELAY_MS} when omitted.
+   */
+  maxDelayMs?: number;
   fallbackAction?: "skip" | "abort" | "notify";
 }
 

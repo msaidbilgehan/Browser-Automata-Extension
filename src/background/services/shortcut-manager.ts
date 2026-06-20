@@ -4,6 +4,7 @@ import { resolveTargetScopes } from "./scope-resolver";
 import type { Shortcut, EntityId } from "@/shared/types/entities";
 import { DEFAULT_SETTINGS } from "@/shared/types/settings";
 import { appendLogEntry } from "@/background/handlers/log-handler";
+import { notifyPageToast } from "./error-surfacer";
 import { executeScript } from "./script-manager";
 import { runExtraction, processOutputActions } from "./extraction-engine";
 import { executeFlow } from "./flow-executor";
@@ -84,6 +85,7 @@ export async function pushQuickTipToTab(
 export async function handleShortcutExecution(
   shortcutId: EntityId,
   sender: chrome.runtime.MessageSender,
+  error?: string,
 ): Promise<void> {
   const shortcuts = (await localStore.get("shortcuts")) ?? {};
   const shortcut = shortcuts[shortcutId];
@@ -92,14 +94,27 @@ export async function handleShortcutExecution(
   const tabId = sender.tab?.id;
   if (!tabId) return;
 
+  const urlMeta: { url?: string; domain?: string } = sender.tab?.url
+    ? { url: sender.tab.url, domain: extractDomain(sender.tab.url) }
+    : {};
+
   await appendLogEntry({
     action: "shortcut_triggered",
     status: "info",
     entityId: shortcut.id,
     entityType: "shortcut",
-    ...(sender.tab?.url ? { url: sender.tab.url, domain: extractDomain(sender.tab.url) } : {}),
+    ...urlMeta,
     message: `Shortcut "${shortcut.name}" triggered`,
   });
+
+  // The content script reports a failure when a locally-handled click/focus
+  // action found no target. Record it explicitly — previously this path left
+  // only the "triggered" info line, making a silent no-op look like a success.
+  // (The content script already showed the on-page toast, so don't double up.)
+  if (error !== undefined) {
+    await logShortcutFailure(shortcut, urlMeta, "action failed", error);
+    return;
+  }
 
   switch (shortcut.action.type) {
     case "script": {
@@ -112,22 +127,33 @@ export async function handleShortcutExecution(
     }
     case "inline_script": {
       try {
-        await chrome.scripting.executeScript({
+        // The injected function returns the error message (or null on success)
+        // so a thrown error inside the page is surfaced instead of being
+        // swallowed by an inner console.error the user never sees.
+        const results = await chrome.scripting.executeScript({
           target: { tabId },
           world: "ISOLATED",
-          func: (code: string) => {
+          func: (code: string): string | null => {
             try {
               // eslint-disable-next-line @typescript-eslint/no-implied-eval
               const fn: () => unknown = new Function(code) as () => unknown;
               fn();
+              return null;
             } catch (e) {
-              console.error("[Browser Automata] Inline script error:", e);
+              return e instanceof Error ? e.message : String(e);
             }
           },
           args: [shortcut.action.code],
         });
+        const scriptError = results[0]?.result;
+        if (typeof scriptError === "string") {
+          await logShortcutFailure(shortcut, urlMeta, "inline script failed", scriptError);
+          void notifyPageToast(tabId, `${shortcut.name}: ${scriptError}`);
+        }
       } catch (err) {
-        console.error("[Browser Automata] Failed to execute inline script:", err);
+        const msg = err instanceof Error ? err.message : String(err);
+        await logShortcutFailure(shortcut, urlMeta, "inline script could not run", msg);
+        void notifyPageToast(tabId, `${shortcut.name}: ${msg}`);
       }
       break;
     }
@@ -155,6 +181,24 @@ export async function handleShortcutExecution(
     case "focus":
       break;
   }
+}
+
+/** Append an `error`-status activity-log entry for a shortcut action that failed. */
+async function logShortcutFailure(
+  shortcut: Shortcut,
+  urlMeta: { url?: string; domain?: string },
+  summary: string,
+  errorMsg: string,
+): Promise<void> {
+  await appendLogEntry({
+    action: "shortcut_triggered",
+    status: "error",
+    entityId: shortcut.id,
+    entityType: "shortcut",
+    ...urlMeta,
+    message: `Shortcut "${shortcut.name}" ${summary}`,
+    error: { name: "ShortcutActionError", message: errorMsg },
+  });
 }
 
 function extractDomain(url: string): string {

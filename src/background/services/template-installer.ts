@@ -1,6 +1,7 @@
 import { localStore } from "@/shared/storage";
 import { generateId, now } from "@/shared/utils";
 import { fetchSingleTemplate } from "./template-registry";
+import { resyncEntitySideEffects } from "./side-effect-sync";
 import { computeTemplateContentHash, computeLocalEntitiesHash } from "@/shared/template-hash";
 import type {
   Script,
@@ -166,6 +167,11 @@ async function installFromTemplate(
   // Compute content hash and track installed template
   const contentHash = await computeTemplateContentHash(template);
   await trackInstalledTemplate(template.id, template.meta.templateVersion, timestamp, contentHash, template.name, registryContentHash);
+
+  // Templates can carry network rules and scheduled scripts; register them with
+  // the declarativeNetRequest engine and alarm system now that they are stored.
+  // Update/reset run this after their remove step, so it reflects final state.
+  await resyncEntitySideEffects();
 
   return { ok: true };
 }
@@ -394,6 +400,10 @@ export async function uninstallTemplate(
       ),
     {},
   );
+
+  // Removing a template can delete network rules and scheduled scripts — re-sync
+  // so the declarativeNetRequest engine and alarms drop the now-stale entries.
+  await resyncEntitySideEffects();
 
   return { ok: true };
 }

@@ -7,7 +7,11 @@ import { DEFAULT_SETTINGS } from "@/shared/types/settings";
 import { syncStore } from "@/shared/storage";
 import { setupScheduledScripts } from "./services/schedule-manager";
 import { handleAlarmFired } from "./services/schedule-manager";
-import { setupNotificationAlarms } from "./services/notification-checker";
+import {
+  setupNotificationAlarms,
+  checkNotificationRuleById,
+  NOTIFICATION_ALARM_PREFIX,
+} from "./services/notification-checker";
 import { syncNetworkRules } from "./services/network-manager";
 import { pushShortcutsToTab } from "./services/shortcut-manager";
 import { injectPageLoadScripts } from "./services/script-manager";
@@ -17,9 +21,16 @@ import { applyExtensionIcon } from "./services/icon-manager";
 // Register message router synchronously at top level
 registerMessageRouter();
 
-// Register alarm listener synchronously at top level
+// Register alarm listener synchronously at top level.
+// Route by alarm-name prefix: notification rules use `notification-check:<id>`,
+// scheduled scripts use `schedule:<id>` (handled by handleAlarmFired).
 chrome.alarms.onAlarm.addListener((alarm) => {
-  void handleAlarmFired(alarm.name);
+  if (alarm.name.startsWith(NOTIFICATION_ALARM_PREFIX)) {
+    const ruleId = alarm.name.slice(NOTIFICATION_ALARM_PREFIX.length);
+    void checkNotificationRuleById(ruleId);
+  } else {
+    void handleAlarmFired(alarm.name);
+  }
 });
 
 /**

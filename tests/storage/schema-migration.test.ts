@@ -19,9 +19,9 @@ describe("runMigrations", () => {
     await runMigrations();
 
     const setCalls = vi.mocked(chrome.storage.local.set).mock.calls;
-    const setKeys = setCalls.map(
-      (call) => Object.keys(call[0] as Record<string, unknown>)[0],
-    );
+    // Collect every key written across all set calls. The v1 migration batches
+    // its collection writes into a single set, so this stays agnostic to batching.
+    const setKeys = setCalls.flatMap((call) => Object.keys(call[0] as Record<string, unknown>));
 
     expect(setKeys).toContain("scripts");
     expect(setKeys).toContain("shortcuts");
@@ -52,9 +52,9 @@ describe("runMigrations", () => {
     await runMigrations();
 
     const setCalls = vi.mocked(chrome.storage.local.set).mock.calls;
-    const setKeys = setCalls.map(
-      (call) => Object.keys(call[0] as Record<string, unknown>)[0],
-    );
+    // Collect every key written across all set calls. The v1 migration batches
+    // its collection writes into a single set, so this stays agnostic to batching.
+    const setKeys = setCalls.flatMap((call) => Object.keys(call[0] as Record<string, unknown>));
 
     expect(setKeys).toEqual(["schemaVersion"]);
   });

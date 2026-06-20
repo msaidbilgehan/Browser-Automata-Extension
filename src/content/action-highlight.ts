@@ -40,6 +40,15 @@ export function updateHighlightSettings(enabled: boolean): void {
   highlightEnabled = enabled;
 }
 
+/** Position an overlay over its source element using the current viewport rect. */
+function positionOverlay(overlay: HTMLDivElement, element: Element): void {
+  const rect = element.getBoundingClientRect();
+  overlay.style.top = `${String(rect.top)}px`;
+  overlay.style.left = `${String(rect.left)}px`;
+  overlay.style.width = `${String(rect.width)}px`;
+  overlay.style.height = `${String(rect.height)}px`;
+}
+
 /** Flash-highlight an element briefly (~600ms total, fades out in the last 200ms) */
 export function flashHighlight(element: Element): void {
   if (!highlightEnabled) return;
@@ -51,13 +60,18 @@ export function flashHighlight(element: Element): void {
 
   const overlay = document.createElement("div");
   overlay.setAttribute(HIGHLIGHT_ATTR, "");
-  overlay.style.top = `${String(rect.top)}px`;
-  overlay.style.left = `${String(rect.left)}px`;
-  overlay.style.width = `${String(rect.width)}px`;
-  overlay.style.height = `${String(rect.height)}px`;
+  positionOverlay(overlay, element);
   overlay.style.opacity = "1";
 
   document.documentElement.appendChild(overlay);
+
+  // The fixed-position overlay would drift off its target if the user scrolls
+  // during the flash — keep it aligned until it is removed.
+  const onViewportChange = (): void => {
+    positionOverlay(overlay, element);
+  };
+  window.addEventListener("scroll", onViewportChange, true);
+  window.addEventListener("resize", onViewportChange);
 
   // Start fading out after 400ms
   setTimeout(() => {
@@ -66,6 +80,8 @@ export function flashHighlight(element: Element): void {
 
   // Remove from DOM after fade completes
   setTimeout(() => {
+    window.removeEventListener("scroll", onViewportChange, true);
+    window.removeEventListener("resize", onViewportChange);
     overlay.remove();
   }, 600);
 }

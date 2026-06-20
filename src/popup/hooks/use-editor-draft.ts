@@ -42,6 +42,11 @@ export function useEditorDraft<T>(options: UseEditorDraftOptions<T>): UseEditorD
   const hydratedRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // When we reset `draft` programmatically (discard), the auto-save effect fires
+  // for that change too. This flag suppresses exactly that one write so discard
+  // does not immediately re-persist the draft it just removed.
+  const skipNextSaveRef = useRef(false);
+
   // Stable refs for options to avoid re-running effects on every render
   const tabRef = useRef(tab);
   const entityIdRef = useRef(entityId);
@@ -73,6 +78,12 @@ export function useEditorDraft<T>(options: UseEditorDraftOptions<T>): UseEditorD
   // ── Auto-save draft on every change (debounced) ──
   useEffect(() => {
     if (!hydratedRef.current) return;
+
+    // Skip the write triggered by a programmatic reset (see discardDraft).
+    if (skipNextSaveRef.current) {
+      skipNextSaveRef.current = false;
+      return;
+    }
 
     if (timerRef.current !== null) {
       clearTimeout(timerRef.current);
@@ -116,6 +127,9 @@ export function useEditorDraft<T>(options: UseEditorDraftOptions<T>): UseEditorD
     }
     await removeDraft(tabRef.current, entityIdRef.current);
     if (saved !== null) {
+      // Resetting draft re-fires the auto-save effect; suppress that one write
+      // so the draft we just removed is not immediately written back.
+      skipNextSaveRef.current = true;
       setDraft(saved);
     }
   }, [saved]);

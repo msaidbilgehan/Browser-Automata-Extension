@@ -49,6 +49,12 @@ export interface StorageSchema {
   sharedLibraries: Record<string, SharedLibrary>;
   scriptVersions: Record<string, ScriptVersion[]>;
   networkRules: Record<string, NetworkRule>;
+  /**
+   * Persisted bijective map from NetworkRule EntityId → declarativeNetRequest
+   * numeric rule ID. Allocated locally so two rules can never collide, regardless
+   * of where they came from (UI, import, template). Managed by network-manager.
+   */
+  networkRuleIds: Record<string, number>;
   clipboardHistory: ClipboardEntry[];
   formFillProfiles: Record<string, FormFillProfile>;
   notificationRules: Record<string, NotificationRule>;

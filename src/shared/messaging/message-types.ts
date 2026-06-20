@@ -21,6 +21,7 @@ const SW_TO_CONTENT_TYPES = new Set([
   "CLEAR_TEST_HIGHLIGHT",
   "UPDATE_QUICK_RUN_ACTIONS",
   "UPDATE_QUICK_TIP_SHORTCUTS",
+  "SHOW_TOAST",
 ]);
 
 /** Type guard: checks if a value is a service-worker-to-content message */

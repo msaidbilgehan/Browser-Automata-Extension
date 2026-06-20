@@ -8,6 +8,7 @@ import type { ImportExportSectionKey } from "@/shared/types/import-export";
 import { localStore, syncStore } from "@/shared/storage";
 import { CURRENT_SCHEMA_VERSION } from "@/shared/constants";
 import { now } from "@/shared/utils";
+import { resyncEntitySideEffects } from "./side-effect-sync";
 
 /**
  * Export all entities and settings into a BrowserAutomataExport object.
@@ -58,10 +59,70 @@ export async function exportConfig(options?: {
   return { data };
 }
 
+const EXPECTED_IMPORT_FORMAT = "browser-automata-export";
+
+/**
+ * Validate an import payload's envelope before any of it is written to storage.
+ *
+ * The payload comes from an untrusted file, so its declared type cannot be
+ * trusted at runtime — it is inspected loosely. Rejects files that are not
+ * Browser Automata exports and payloads produced by a newer schema than this
+ * build understands (which could be shaped in ways the importer would corrupt).
+ */
+export function validateImportEnvelope(data: BrowserAutomataExport): {
+  ok: boolean;
+  reason?: string;
+} {
+  const envelope = data as { _format?: unknown; _schemaVersion?: unknown };
+  if (envelope._format !== EXPECTED_IMPORT_FORMAT) {
+    return { ok: false, reason: `unrecognized format ${JSON.stringify(envelope._format)}` };
+  }
+  if (typeof envelope._schemaVersion !== "number" || !Number.isFinite(envelope._schemaVersion)) {
+    return { ok: false, reason: "missing or invalid schema version" };
+  }
+  if (envelope._schemaVersion > CURRENT_SCHEMA_VERSION) {
+    return {
+      ok: false,
+      reason: `schema v${String(envelope._schemaVersion)} is newer than the supported v${String(CURRENT_SCHEMA_VERSION)}`,
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * Keep only entities that carry a non-empty string `id`. Anything else would be
+ * keyed into the id-record under `"undefined"` and, for replace_all, silently
+ * drop or corrupt existing data.
+ */
+export function withValidId<T extends { id: string }>(items: T[] | undefined): T[] {
+  if (!items) return [];
+  return items.filter((item) => typeof item.id === "string" && item.id.trim() !== "");
+}
+
 /**
  * Import a BrowserAutomataExport with the given merge strategy.
  */
 export async function importConfig(
+  data: BrowserAutomataExport,
+  strategy: ImportMergeStrategy,
+): Promise<{ ok: boolean }> {
+  // Validate the envelope before touching storage — a malformed file must never
+  // reach importReplaceAll, which would otherwise clear storage first.
+  const validation = validateImportEnvelope(data);
+  if (!validation.ok) {
+    console.warn(`[Browser Automata] Import rejected: ${validation.reason ?? "invalid payload"}`);
+    return { ok: false };
+  }
+
+  const result = await runImportStrategy(data, strategy);
+  // A bulk import can add/replace network rules, notification rules, and
+  // scheduled scripts. Re-sync the declarativeNetRequest engine and alarms so
+  // they take effect immediately instead of only after a browser restart.
+  await resyncEntitySideEffects();
+  return result;
+}
+
+async function runImportStrategy(
   data: BrowserAutomataExport,
   strategy: ImportMergeStrategy,
 ): Promise<{ ok: boolean }> {
@@ -142,12 +203,13 @@ async function mergeEntities(
   items: { id: string }[] | undefined,
   overwrite: boolean,
 ): Promise<void> {
-  if (!items || items.length === 0) return;
+  const valid = withValidId(items);
+  if (valid.length === 0) return;
   await localStore.update(
     key,
     (current) => {
       const updated = { ...(current as Record<string, unknown>) };
-      for (const item of items) {
+      for (const item of valid) {
         if (overwrite || !(item.id in updated)) {
           updated[item.id] = item;
         }
@@ -160,10 +222,8 @@ async function mergeEntities(
 
 function arrayToRecord<T extends { id: string }>(items: T[] | undefined): Record<string, T> {
   const record: Record<string, T> = {};
-  if (items) {
-    for (const item of items) {
-      record[item.id] = item;
-    }
+  for (const item of withValidId(items)) {
+    record[item.id] = item;
   }
   return record;
 }

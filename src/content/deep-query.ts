@@ -56,7 +56,8 @@ export function querySelectorAllDeep(selector: string): Element[] {
   } catch {
     // Invalid selector — return empty
   }
-  return results;
+  // De-duplicate: an element reachable through more than one root must appear once.
+  return results.length > 1 ? [...new Set(results)] : results;
 }
 
 /**
@@ -84,16 +85,12 @@ function collectMatches(
   out: Element[],
 ): void {
   if (isXPath(selector)) {
-    // XPath: evaluate against this root
+    // `document.evaluate` cannot cross shadow boundaries, and an absolute XPath
+    // ignores its context node — evaluating it per shadow root just re-runs the
+    // same light-DOM query and double-counts. Evaluate once against `root`.
     for (const el of xpathQueryAll(selector, root)) {
       out.push(el);
     }
-    // Recurse into shadow roots
-    walkShadowRoots(root, (shadowRoot) => {
-      for (const el of xpathQueryAll(selector, shadowRoot)) {
-        out.push(el);
-      }
-    });
     return;
   }
 
@@ -126,10 +123,8 @@ function findFirst(
   selector: string,
 ): Element | null {
   if (isXPath(selector)) {
-    const match = xpathQueryFirst(selector, root);
-    if (match !== null) return match;
-    // Check shadow roots using efficient element iteration
-    return findFirstInShadowRoots(root, (sr) => xpathQueryFirst(selector, sr));
+    // XPath cannot reach shadow DOM (see collectMatches) — evaluate once.
+    return xpathQueryFirst(selector, root);
   }
 
   try {

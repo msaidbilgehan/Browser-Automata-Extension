@@ -1,16 +1,35 @@
 import { inlineDeepQuery } from "@/shared/deep-query-snippet";
 
+/** Delay (ms) to let a newly-activated tab paint before capture. */
+const ACTIVATION_PAINT_MS = 150;
+/** Delay (ms) to let a scroll settle and the page repaint before capture. */
+const SCROLL_SETTLE_MS = 200;
+
+/**
+ * Make the target tab the active tab of its window and wait for it to paint.
+ *
+ * `chrome.tabs.captureVisibleTab` only ever captures a window's *active* tab —
+ * passing a background `tabId` would otherwise screenshot whatever tab happens
+ * to be in front. Returns the (refreshed) tab so callers have its `windowId`.
+ */
+async function activateTabForCapture(tabId: number): Promise<chrome.tabs.Tab> {
+  const tab = await chrome.tabs.get(tabId);
+  if (!tab.active) {
+    await chrome.tabs.update(tabId, { active: true });
+    await new Promise((resolve) => setTimeout(resolve, ACTIVATION_PAINT_MS));
+    return chrome.tabs.get(tabId);
+  }
+  return tab;
+}
+
 /**
  * Capture the visible area of a tab as a PNG data URL.
  */
 export async function captureFullPage(tabId: number): Promise<string> {
-  // Ensure the tab is active before capturing
-  const tab = await chrome.tabs.get(tabId);
-  const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, {
+  const tab = await activateTabForCapture(tabId);
+  return chrome.tabs.captureVisibleTab(tab.windowId, {
     format: "png",
   });
-
-  return dataUrl;
 }
 
 /**
@@ -19,8 +38,20 @@ export async function captureFullPage(tabId: number): Promise<string> {
  * and crops the screenshot via an OffscreenCanvas in the injected script.
  */
 export async function captureElement(tabId: number, selector: string): Promise<string> {
-  // First capture the full visible tab
-  const tab = await chrome.tabs.get(tabId);
+  const tab = await activateTabForCapture(tabId);
+
+  // Scroll the element into the viewport first — captureVisibleTab only sees the
+  // visible region, so an off-screen element would otherwise crop to garbage.
+  const scrollResults = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: scrollElementIntoView,
+    args: [selector],
+  });
+  if (scrollResults[0]?.result !== true) {
+    throw new Error(`Element not found: ${selector}`);
+  }
+  // Let the scroll settle and the page repaint before capturing.
+  await new Promise((resolve) => setTimeout(resolve, SCROLL_SETTLE_MS));
 
   const fullDataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, {
     format: "png",
@@ -59,6 +90,18 @@ export async function saveScreenshot(dataUrl: string, filename: string): Promise
 // ─── Injected functions ──────────────────────────────────────────────────
 
 /**
+ * Injected into the page. Scrolls the element matching `selector` into the
+ * viewport so it falls within the captured region. Returns false if no element
+ * matches.
+ */
+function scrollElementIntoView(selector: string): boolean {
+  const element = inlineDeepQuery(selector);
+  if (!element) return false;
+  element.scrollIntoView({ block: "center", inline: "center" });
+  return true;
+}
+
+/**
  * Injected into the page. Finds the element by selector, reads its bounding
  * rect, loads the full screenshot into an Image, crops it via canvas, and
  * returns the cropped data URL.
@@ -75,15 +118,27 @@ function cropElementFromScreenshot(
     }
 
     const rect = element.getBoundingClientRect();
+    // The screenshot only covers the visible viewport, so clamp the crop region
+    // to the intersection of the element and the viewport. An element entirely
+    // off-screen (empty intersection) is rejected rather than cropped to garbage.
+    const left = Math.max(0, rect.left);
+    const top = Math.max(0, rect.top);
+    const right = Math.min(window.innerWidth, rect.right);
+    const bottom = Math.min(window.innerHeight, rect.bottom);
+    if (right <= left || bottom <= top) {
+      resolve({ error: `Element is not visible in the viewport: ${selector}` });
+      return;
+    }
+
     const dpr = window.devicePixelRatio || 1;
 
     const img = new Image();
     img.onload = () => {
       const canvas = document.createElement("canvas");
-      const x = Math.round(rect.left * dpr);
-      const y = Math.round(rect.top * dpr);
-      const w = Math.round(rect.width * dpr);
-      const h = Math.round(rect.height * dpr);
+      const x = Math.round(left * dpr);
+      const y = Math.round(top * dpr);
+      const w = Math.round((right - left) * dpr);
+      const h = Math.round((bottom - top) * dpr);
 
       canvas.width = w;
       canvas.height = h;

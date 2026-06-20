@@ -39,8 +39,20 @@ export function isTypeScriptCode(code: string): boolean {
 
 /**
  * Strip TypeScript type annotations to produce valid JavaScript.
- * This is a best-effort stub — handles common cases but not all TS syntax.
- * A production implementation would use esbuild WASM.
+ *
+ * ⚠️ UNSOUND STUB — regex-based type-stripping, not a parser.
+ * This handles common cases but is fundamentally unsound and can both fail and
+ * (worse) silently produce semantically-wrong-but-syntactically-valid output:
+ *   - Object literals with multiple properties: `{ a: 1, b: 2 }` → `{ a, b: 2 }`
+ *     (the param-annotation regex eats the first `key: value`).
+ *   - Nested braces in interfaces/enums, ternaries (`x ? a : b`), and enum
+ *     *references* are mis-handled.
+ * Such output is handed to `new Function()` and fails with an opaque
+ * `SyntaxError`, or runs with altered semantics. A correct fix requires a real
+ * transpiler (esbuild-wasm); a `new Function()` parse-check is NOT viable here
+ * because the MV3 service-worker CSP forbids eval. Before wiring this into the
+ * execution pipeline, replace it with esbuild-wasm (or reject TS input outright).
+ * Treat the returned `js` as best-effort; always surface `errors` to the user.
  */
 export function compileTypeScript(code: string): CompileResult {
   const errors: string[] = [];

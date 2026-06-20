@@ -19,6 +19,12 @@ const storageMock = {
         clear: asyncMock(),
         onChanged: { addListener: vi.fn(), removeListener: vi.fn() },
     },
+    session: {
+        get: asyncMock({}),
+        set: asyncMock(),
+        remove: asyncMock(),
+        clear: asyncMock(),
+    },
     onChanged: { addListener: vi.fn(), removeListener: vi.fn() },
 };
 const runtimeMock = {

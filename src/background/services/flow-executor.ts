@@ -1,6 +1,6 @@
 import { localStore } from "@/shared/storage";
 import { appendLogEntry } from "@/background/handlers/log-handler";
-import { notifyError } from "./error-surfacer";
+import { notifyError, notifyPageToast } from "./error-surfacer";
 import { executeScript } from "./script-manager";
 import { DEEP_QUERY_SNIPPET } from "@/shared/deep-query-snippet";
 import { cspSafeExecExpression, cspSafeExecStatements } from "@/shared/csp-safe-eval";
@@ -8,84 +8,139 @@ import { normalizeUrl, now } from "@/shared/utils";
 import type { EntityId, Flow, FlowNode, FlowNodeConfig } from "@/shared/types/entities";
 import type { FlowRunState, FlowRunLogEntry } from "@/shared/types/flow-run";
 import { injectResultWidget } from "@/shared/result-display";
-import { openResultTab, runExtraction, processOutputActions, ensureContentScript } from "./extraction-engine";
+import {
+  openResultTab,
+  runExtraction,
+  processOutputActions,
+  ensureContentScript,
+} from "./extraction-engine";
 
 // ─── Flow Run Status Broadcasting ────────────────────────────────────────────
 
 const SESSION_KEY = "_flowRunState";
 
-let runState: FlowRunState | null = null;
-
-async function broadcastState(): Promise<void> {
-  if (runState) {
-    await chrome.storage.session.set({ [SESSION_KEY]: runState });
-  }
+async function broadcastState(runState: FlowRunState): Promise<void> {
+  await chrome.storage.session.set({ [SESSION_KEY]: runState });
 }
 
-function addRunLog(level: FlowRunLogEntry["level"], message: string): void {
-  if (!runState) return;
+function addRunLog(runState: FlowRunState, level: FlowRunLogEntry["level"], message: string): void {
   runState.logs.push({ timestamp: now(), level, message });
 }
 
 function nodeLabel(config: FlowNodeConfig): string {
   switch (config.type) {
-    case "click": return `Click "${config.selector}"`;
-    case "type": return `Type into "${config.selector}"`;
-    case "scroll": return `Scroll ${config.direction} ${String(config.amount)}px`;
-    case "navigate": return `Navigate to "${config.url}"`;
-    case "wait_element": return `Wait for "${config.selector}"`;
-    case "wait_ms": return `Wait ${String(config.duration)}ms`;
-    case "wait_idle": return "Wait for idle";
-    case "condition": return `Condition (${config.check.type})`;
-    case "script": return `Run script`;
-    case "open_tab": return `Open tab "${config.url}"`;
-    case "close_tab": return "Close tab";
-    case "loop": return config.count !== undefined ? `Loop ${String(config.count)}x` : "Loop until selector";
-    case "extract": return `Extract "${config.selector}"`;
-    case "run_extraction": return `Run extraction rule`;
-    case "clipboard_copy": return `Copy "${config.selector}"`;
-    case "clipboard_paste": return `Paste into "${config.selector}"`;
+    case "click":
+      return `Click "${config.selector}"`;
+    case "type":
+      return `Type into "${config.selector}"`;
+    case "scroll":
+      return `Scroll ${config.direction} ${String(config.amount)}px`;
+    case "navigate":
+      return `Navigate to "${config.url}"`;
+    case "wait_element":
+      return `Wait for "${config.selector}"`;
+    case "wait_ms":
+      return `Wait ${String(config.duration)}ms`;
+    case "wait_idle":
+      return "Wait for idle";
+    case "condition":
+      return `Condition (${config.check.type})`;
+    case "script":
+      return `Run script`;
+    case "open_tab":
+      return `Open tab "${config.url}"`;
+    case "close_tab":
+      return "Close tab";
+    case "loop":
+      return config.count !== undefined ? `Loop ${String(config.count)}x` : "Loop until selector";
+    case "extract":
+      return `Extract "${config.selector}"`;
+    case "run_extraction":
+      return `Run extraction rule`;
+    case "clipboard_copy":
+      return `Copy "${config.selector}"`;
+    case "clipboard_paste":
+      return `Paste into "${config.selector}"`;
   }
 }
 
-// ─── Mutable execution context ──────────────────────────────────────────────
+// ─── Per-run execution context ───────────────────────────────────────────────
 
-/** Holds the active tab ID so open_tab / close_tab can update it mid-flow. */
+/**
+ * Per-invocation execution state. Created fresh inside {@link executeFlow} and
+ * threaded through every node so concurrent flow runs never share state.
+ * (Previously runState / stepIndexMap / nodeMap lived at module scope, which let
+ * two simultaneous runs clobber each other's maps and silently skip steps.)
+ */
 interface FlowContext {
+  /** Active tab ID — open_tab / close_tab can update it mid-flow. */
   tabId: number;
+  /** Live run state broadcast to the popup's FlowRunWidget. */
+  runState: FlowRunState;
+  /** O(1) node-ID → step-index lookup. */
+  stepIndexMap: Map<string, number>;
+  /** O(1) node-ID → node lookup (used by condition / loop branches). */
+  nodeMap: Map<string, FlowNode>;
 }
-
-/** O(1) node-to-step index lookup, built once per flow run */
-let stepIndexMap = new Map<string, number>();
 
 // ─── Tab helpers ─────────────────────────────────────────────────────────────
 
-/** Wait until a tab reaches "complete" status (page fully loaded). */
+/**
+ * Wait until a tab reaches "complete" status (page fully loaded).
+ *
+ * Rejects promptly — instead of hanging for the full timeout — if the tab is
+ * closed or otherwise unavailable mid-load, and never leaves the `onUpdated`
+ * listener attached. A missing `.catch` on `chrome.tabs.get` previously caused
+ * an unhandled rejection plus a ~30s hang when the tab closed between
+ * scheduling and the lookup.
+ */
 function waitForTabLoad(tabId: number, timeoutMs = 30_000): Promise<void> {
   return new Promise<void>((resolve, reject) => {
+    let settled = false;
+
+    const finish = (action: () => void): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      chrome.tabs.onUpdated.removeListener(onUpdated);
+      chrome.tabs.onRemoved.removeListener(onRemoved);
+      action();
+    };
+
     const timeout = setTimeout(() => {
-      chrome.tabs.onUpdated.removeListener(listener);
-      reject(new Error(`Tab ${String(tabId)} load timed out after ${String(timeoutMs / 1000)}s`));
+      finish(() => {
+        reject(new Error(`Tab ${String(tabId)} load timed out after ${String(timeoutMs / 1000)}s`));
+      });
     }, timeoutMs);
 
-    const listener = (updatedTabId: number, changeInfo: chrome.tabs.TabChangeInfo) => {
+    const onUpdated = (updatedTabId: number, changeInfo: chrome.tabs.TabChangeInfo): void => {
       if (updatedTabId === tabId && changeInfo.status === "complete") {
-        clearTimeout(timeout);
-        chrome.tabs.onUpdated.removeListener(listener);
-        resolve();
+        finish(resolve);
       }
     };
 
-    chrome.tabs.onUpdated.addListener(listener);
-
-    // The tab may already be complete (e.g. about:blank → url navigation)
-    void chrome.tabs.get(tabId).then((tab) => {
-      if (tab.status === "complete") {
-        clearTimeout(timeout);
-        chrome.tabs.onUpdated.removeListener(listener);
-        resolve();
+    const onRemoved = (removedTabId: number): void => {
+      if (removedTabId === tabId) {
+        finish(() => {
+          reject(new Error(`Tab ${String(tabId)} was closed before it finished loading`));
+        });
       }
-    });
+    };
+
+    chrome.tabs.onUpdated.addListener(onUpdated);
+    chrome.tabs.onRemoved.addListener(onRemoved);
+
+    // The tab may already be complete (e.g. about:blank → url navigation).
+    chrome.tabs.get(tabId).then(
+      (tab) => {
+        if (tab.status === "complete") finish(resolve);
+      },
+      (err: unknown) => {
+        finish(() => {
+          reject(err instanceof Error ? err : new Error(`Tab ${String(tabId)} is not available`));
+        });
+      },
+    );
   });
 }
 
@@ -117,8 +172,9 @@ export async function executeFlow(
 
   runningFlows.add(flowId);
 
-  // Initialize run state
-  runState = {
+  // Initialize per-run state. Everything below is local to this invocation, so
+  // two concurrent flow runs can never clobber each other's maps or run state.
+  const runState: FlowRunState = {
     flowId: flow.id,
     flowName: flow.name,
     status: "running",
@@ -134,18 +190,20 @@ export async function executeFlow(
   };
 
   // Build O(1) lookups (avoids repeated O(n) find/findIndex in loops and conditions)
-  stepIndexMap = new Map();
+  const stepIndexMap = new Map<string, number>();
   for (let i = 0; i < runState.steps.length; i++) {
     const step = runState.steps[i];
     if (step) stepIndexMap.set(step.nodeId, i);
   }
-  nodeMap = new Map();
+  const nodeMap = new Map<string, FlowNode>();
   for (const node of flow.nodes) {
     nodeMap.set(node.id, node);
   }
 
-  addRunLog("info", `Flow "${flow.name}" started`);
-  await broadcastState();
+  const ctx: FlowContext = { tabId, runState, stepIndexMap, nodeMap };
+
+  addRunLog(runState, "info", `Flow "${flow.name}" started`);
+  await broadcastState(runState);
 
   await appendLogEntry({
     action: "flow_executed",
@@ -155,15 +213,13 @@ export async function executeFlow(
     message: `Flow "${flow.name}" started`,
   });
 
-  const ctx: FlowContext = { tabId };
-
   try {
     await walkNodes(flow, flow.nodes, ctx);
 
     runState.status = "success";
     runState.completedAt = now();
-    addRunLog("success", `Flow "${flow.name}" completed successfully`);
-    await broadcastState();
+    addRunLog(runState, "success", `Flow "${flow.name}" completed successfully`);
+    await broadcastState(runState);
 
     await appendLogEntry({
       action: "flow_executed",
@@ -179,8 +235,8 @@ export async function executeFlow(
 
     runState.status = "error";
     runState.completedAt = now();
-    addRunLog("error", `Flow "${flow.name}" failed: ${errorMessage}`);
-    await broadcastState();
+    addRunLog(runState, "error", `Flow "${flow.name}" failed: ${errorMessage}`);
+    await broadcastState(runState);
 
     await appendLogEntry({
       action: "flow_error",
@@ -192,18 +248,14 @@ export async function executeFlow(
     });
 
     if (flow.notifyOnError) {
-      await notifyError(
-        `Flow Error: ${flow.name || "Untitled"}`,
-        errorMessage,
-      );
+      await notifyError(`Flow Error: ${flow.name || "Untitled"}`, errorMessage);
     }
 
     return { ok: false, error: errorMessage };
   } finally {
     runningFlows.delete(flowId);
-    // Release per-run lookup maps to avoid retaining stale references
-    stepIndexMap = new Map();
-    nodeMap = new Map();
+    // No module-level state to release — runState / stepIndexMap / nodeMap are
+    // local to this invocation and freed when it returns.
   }
 }
 
@@ -215,38 +267,61 @@ async function walkNodes(flow: Flow, nodes: FlowNode[], ctx: FlowContext): Promi
 
 async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promise<void> {
   const config = node.config;
+  const { runState, stepIndexMap } = ctx;
 
-  // Update run state — mark this node as running (O(1) via stepIndexMap)
-  if (runState) {
+  // Update run state — mark this node as running (O(1) via stepIndexMap).
+  // Scoped block keeps these locals from colliding with the success/error markers below.
+  {
     const stepIndex = stepIndexMap.get(node.id);
     const step = stepIndex !== undefined ? runState.steps[stepIndex] : undefined;
     if (step && stepIndex !== undefined) {
       runState.currentNodeIndex = stepIndex;
       step.status = "running";
       step.startedAt = now();
-      addRunLog("info", `Running: ${step.label}`);
-      await broadcastState();
+      addRunLog(runState, "info", `Running: ${step.label}`);
+      await broadcastState(runState);
     }
   }
 
   try {
     switch (config.type) {
-      case "click":
-        await injectAction(
-          ctx.tabId,
-          `__qsDeep(${JSON.stringify(config.selector)})?.click()`,
-        );
-        break;
-
-      case "type":
-        await injectAction(
+      case "click": {
+        // Returns false when the selector matches nothing, so a missed click is
+        // reported as a failure instead of being silently swallowed by `?.`
+        // (which evaluated to `undefined` and let the node report success).
+        const clicked = await injectActionResult(
           ctx.tabId,
           `
           const el = __qsDeep(${JSON.stringify(config.selector)});
-          if (el) { el.value = ${interpolateExpr(config.text)}; el.dispatchEvent(new Event('input', {bubbles: true})); }
+          if (!el) return false;
+          if (typeof el.click === "function") el.click();
+          else el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+          return true;
         `,
         );
+        if (clicked !== true) {
+          throw new Error(`Click target not found: no element matched "${config.selector}"`);
+        }
         break;
+      }
+
+      case "type": {
+        const typed = await injectActionResult(
+          ctx.tabId,
+          `
+          const el = __qsDeep(${JSON.stringify(config.selector)});
+          if (!el) return false;
+          el.value = ${interpolateExpr(config.text)};
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+          return true;
+        `,
+        );
+        if (typed !== true) {
+          throw new Error(`Type target not found: no element matched "${config.selector}"`);
+        }
+        break;
+      }
 
       case "scroll":
         await injectAction(
@@ -342,18 +417,22 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
         const extractResponse = await chrome.tabs.sendMessage(ctx.tabId, {
           type: "EXTRACT_DATA",
           ruleId: "__flow_extract__",
-          fields: [{
-            name: config.outputVar || "value",
-            selector: config.selector,
-            ...(config.fallbackSelectors ? { fallbackSelectors: config.fallbackSelectors } : {}),
-            ...(config.attribute ? { attribute: config.attribute } : {}),
-            multiple: false,
-            ...(config.transforms ? { transforms: config.transforms } : {}),
-          }],
+          fields: [
+            {
+              name: config.outputVar || "value",
+              selector: config.selector,
+              ...(config.fallbackSelectors ? { fallbackSelectors: config.fallbackSelectors } : {}),
+              ...(config.attribute ? { attribute: config.attribute } : {}),
+              multiple: false,
+              ...(config.transforms ? { transforms: config.transforms } : {}),
+            },
+          ],
         });
 
         const firstRow = extractResponse?.data?.[0];
-        const rawExtracted: unknown = firstRow ? (firstRow[config.outputVar || "value"] ?? null) : null;
+        const rawExtracted: unknown = firstRow
+          ? (firstRow[config.outputVar || "value"] ?? null)
+          : null;
         /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
         const extractedValue = rawExtracted != null && rawExtracted !== "" ? rawExtracted : null;
 
@@ -365,19 +444,28 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
             func: (varName: string, val: string) => {
               (window as unknown as Record<string, unknown>)[varName] = val;
             },
-            args: [config.outputVar, typeof extractedValue === "string" ? extractedValue : JSON.stringify(extractedValue)],
+            args: [
+              config.outputVar,
+              typeof extractedValue === "string" ? extractedValue : JSON.stringify(extractedValue),
+            ],
           });
         }
 
         // Always log the extracted value for debugging
-        const extractedStr = extractedValue != null ? (typeof extractedValue === "string" ? extractedValue : JSON.stringify(extractedValue)) : null;
+        const extractedStr =
+          extractedValue != null
+            ? typeof extractedValue === "string"
+              ? extractedValue
+              : JSON.stringify(extractedValue)
+            : null;
         addRunLog(
+          runState,
           extractedStr != null ? "info" : "warning",
           extractedStr != null
             ? `Extracted "${config.outputVar}": ${extractedStr.slice(0, 500)}`
             : `Extract "${config.outputVar}" from "${config.selector}": no value found`,
         );
-        await broadcastState();
+        await broadcastState(runState);
 
         // Perform output actions if configured
         const actions = config.outputActions ?? [];
@@ -405,9 +493,13 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
                 },
                 args: [formatted],
               });
-              addRunLog("success", `Copied extracted value to clipboard`);
+              addRunLog(runState, "success", `Copied extracted value to clipboard`);
             } catch (clipErr) {
-              addRunLog("warning", `Clipboard copy failed: ${clipErr instanceof Error ? clipErr.message : String(clipErr)}`);
+              addRunLog(
+                runState,
+                "warning",
+                `Clipboard copy failed: ${clipErr instanceof Error ? clipErr.message : String(clipErr)}`,
+              );
             }
           }
 
@@ -419,14 +511,18 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
                 filename: `${config.outputVar || "extract"}.txt`,
                 saveAs: false,
               });
-              addRunLog("success", `Downloaded extracted value as file`);
+              addRunLog(runState, "success", `Downloaded extracted value as file`);
             } catch (dlErr) {
-              addRunLog("warning", `Download failed: ${dlErr instanceof Error ? dlErr.message : String(dlErr)}`);
+              addRunLog(
+                runState,
+                "warning",
+                `Download failed: ${dlErr instanceof Error ? dlErr.message : String(dlErr)}`,
+              );
             }
           }
 
           if (actions.includes("show")) {
-            addRunLog("info", `[show] "${config.outputVar}": ${formatted.slice(0, 500)}`);
+            addRunLog(runState, "info", `[show] "${config.outputVar}": ${formatted.slice(0, 500)}`);
           }
 
           if (actions.includes("show_page")) {
@@ -437,18 +533,26 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
                 func: injectResultWidget,
                 args: [formatted, "text", 1, config.outputVar || "Extract"],
               });
-              addRunLog("success", `Displayed extraction result on page`);
+              addRunLog(runState, "success", `Displayed extraction result on page`);
             } catch (widgetErr) {
-              addRunLog("warning", `Page widget failed: ${widgetErr instanceof Error ? widgetErr.message : String(widgetErr)}`);
+              addRunLog(
+                runState,
+                "warning",
+                `Page widget failed: ${widgetErr instanceof Error ? widgetErr.message : String(widgetErr)}`,
+              );
             }
           }
 
           if (actions.includes("show_tab")) {
             try {
               await openResultTab(formatted, "text", 1, config.outputVar || "Extract", false);
-              addRunLog("success", `Opened extraction result in new tab`);
+              addRunLog(runState, "success", `Opened extraction result in new tab`);
             } catch (tabErr) {
-              addRunLog("warning", `New tab display failed: ${tabErr instanceof Error ? tabErr.message : String(tabErr)}`);
+              addRunLog(
+                runState,
+                "warning",
+                `New tab display failed: ${tabErr instanceof Error ? tabErr.message : String(tabErr)}`,
+              );
             }
           }
         }
@@ -458,59 +562,82 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
       case "run_extraction": {
         const ruleId = config.extractionRuleId;
         if (!ruleId) {
-          addRunLog("error", "No extraction rule selected");
+          addRunLog(runState, "error", "No extraction rule selected");
           break;
         }
         const extractionResult = await runExtraction(ruleId, ctx.tabId);
         if (!extractionResult.ok) {
-          addRunLog("error", `Extraction rule failed: ${extractionResult.error ?? "unknown error"}`);
+          addRunLog(
+            runState,
+            "error",
+            `Extraction rule failed: ${extractionResult.error ?? "unknown error"}`,
+          );
           break;
         }
         const rowCount = extractionResult.data?.length ?? 0;
-        addRunLog("success", `Extraction completed: ${String(rowCount)} row(s)`);
-        await broadcastState();
+        addRunLog(runState, "success", `Extraction completed: ${String(rowCount)} row(s)`);
+        await broadcastState(runState);
 
         // Process output actions (clipboard, download, show_page, show_tab) as configured on the rule
         if (extractionResult.formatted && rowCount > 0) {
           const extractionRules = (await localStore.get("extractionRules")) ?? {};
           const rule = extractionRules[ruleId];
           if (rule) {
-            await processOutputActions(ctx.tabId, rule, extractionResult.formatted, extractionResult.data ?? []);
+            await processOutputActions(
+              ctx.tabId,
+              rule,
+              extractionResult.formatted,
+              extractionResult.data ?? [],
+            );
           }
         }
         break;
       }
 
-      case "clipboard_copy":
-        await injectAction(
+      case "clipboard_copy": {
+        const copied = await injectActionResult(
           ctx.tabId,
           `
           const el = __qsDeep(${JSON.stringify(config.selector)});
-          if (el) { await navigator.clipboard.writeText(el.textContent ?? ''); }
+          if (!el) return false;
+          await navigator.clipboard.writeText(el.textContent ?? '');
+          return true;
         `,
         );
+        if (copied !== true) {
+          throw new Error(`Copy target not found: no element matched "${config.selector}"`);
+        }
         break;
+      }
 
-      case "clipboard_paste":
-        await injectAction(
+      case "clipboard_paste": {
+        const pasted = await injectActionResult(
           ctx.tabId,
           `
           const el = __qsDeep(${JSON.stringify(config.selector)});
-          if (el) { const text = await navigator.clipboard.readText(); el.value = text; el.dispatchEvent(new Event('input', {bubbles: true})); }
+          if (!el) return false;
+          const text = await navigator.clipboard.readText();
+          el.value = text;
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          return true;
         `,
         );
+        if (pasted !== true) {
+          throw new Error(`Paste target not found: no element matched "${config.selector}"`);
+        }
         break;
+      }
     }
 
     // Mark step as success (O(1) via stepIndexMap)
-    if (runState) {
+    {
       const idx = stepIndexMap.get(node.id);
       const step = idx !== undefined ? runState.steps[idx] : undefined;
       if (step) {
         step.status = "success";
         step.completedAt = now();
-        addRunLog("success", `Completed: ${step.label}`);
-        await broadcastState();
+        addRunLog(runState, "success", `Completed: ${step.label}`);
+        await broadcastState(runState);
       }
     }
 
@@ -525,15 +652,15 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
     const errorMessage = err instanceof Error ? err.message : String(err);
 
     // Mark step as error (O(1) via stepIndexMap)
-    if (runState) {
+    {
       const idx = stepIndexMap.get(node.id);
       const step = idx !== undefined ? runState.steps[idx] : undefined;
       if (step) {
         step.status = "error";
         step.completedAt = now();
         step.error = errorMessage;
-        addRunLog("error", `Failed: ${step.label} — ${errorMessage}`);
-        await broadcastState();
+        addRunLog(runState, "error", `Failed: ${step.label} — ${errorMessage}`);
+        await broadcastState(runState);
       }
     }
 
@@ -545,6 +672,12 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
       message: `Flow "${flow.name}" node ${config.type} failed: ${errorMessage}`,
       error: { name: "NodeExecutionError", message: errorMessage },
     });
+
+    // Surface the failure on the page itself. The user triggers these flows from
+    // the page (e.g. via a shortcut) and is watching it, not the popup's run
+    // widget — so a missed click must produce visible on-page feedback.
+    void notifyPageToast(ctx.tabId, `${flow.name || "Flow"}: ${errorMessage}`);
+
     // Re-throw to halt flow on error
     throw err;
   }
@@ -560,10 +693,15 @@ async function resolveVariables(tabId: number, template: string): Promise<string
   const results = await chrome.scripting.executeScript({
     target: { tabId },
     world: "MAIN",
-    func: (names: string[]) => names.map((n) => (window as unknown as Record<string, unknown>)[n] != null ? String((window as unknown as Record<string, unknown>)[n]) : ""),
+    func: (names: string[]) =>
+      names.map((n) =>
+        (window as unknown as Record<string, unknown>)[n] != null
+          ? String((window as unknown as Record<string, unknown>)[n])
+          : "",
+      ),
     args: [varNames],
   });
-  const values = (results[0]?.result) ?? [];
+  const values = results[0]?.result ?? [];
   let resolved = template;
   varNames.forEach((name, i) => {
     resolved = resolved.replace(`{{${name}}}`, values[i] ?? "");
@@ -583,19 +721,30 @@ function interpolateExpr(template: string): string {
   return `${JSON.stringify(template)}.replace(/\\{\\{(\\w+)\\}\\}/g, function(_, v) { return window[v] != null ? String(window[v]) : ''; })`;
 }
 
-async function injectAction(tabId: number, code: string): Promise<void> {
+/**
+ * Inject `code` (a statement body with access to __qsDeep / __qsaDeep) into the
+ * page's MAIN world and return whatever the code `return`s.
+ *
+ * Unlike {@link injectAction}, the injected expression's result is preserved so
+ * callers can detect outcomes — e.g. that a target element was not found —
+ * instead of assuming the node succeeded.
+ */
+async function injectActionResult(tabId: number, code: string): Promise<unknown> {
   // Prepend shadow-DOM-aware helpers so __qsDeep / __qsaDeep are available
   const wrappedCode = `(async () => { ${DEEP_QUERY_SNIPPET}; ${code} })()`;
-  await chrome.scripting.executeScript({
+  const results = await chrome.scripting.executeScript({
     target: { tabId },
     world: "MAIN",
     func: cspSafeExecExpression,
     args: [wrappedCode],
   });
+  return results[0]?.result;
 }
 
-/** O(1) node lookup by ID, built once per flow run */
-let nodeMap = new Map<string, FlowNode>();
+/** Inject a fire-and-forget side effect whose return value is irrelevant. */
+async function injectAction(tabId: number, code: string): Promise<void> {
+  await injectActionResult(tabId, code);
+}
 
 async function executeCondition(
   flow: Flow,
@@ -614,7 +763,7 @@ async function executeCondition(
   const targetNodeId = passed ? config.thenNodeId : config.elseNodeId;
 
   if (targetNodeId) {
-    const targetNode = nodeMap.get(targetNodeId);
+    const targetNode = ctx.nodeMap.get(targetNodeId);
     if (targetNode) {
       await executeNode(flow, targetNode, ctx);
     }
@@ -657,7 +806,7 @@ async function executeLoop(
 ): Promise<void> {
   // Resolve body nodes via O(1) map instead of O(n) find per node
   const bodyNodes = config.bodyNodeIds
-    .map((id) => nodeMap.get(id))
+    .map((id) => ctx.nodeMap.get(id))
     .filter((n): n is FlowNode => n !== undefined);
 
   if (config.count !== undefined) {

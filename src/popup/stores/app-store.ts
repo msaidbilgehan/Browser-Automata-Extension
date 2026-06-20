@@ -7,13 +7,31 @@ import { onSyncStorageChange } from "@/shared/storage";
 
 /* ── Tabs visible per view mode ── */
 const BASIC_TABS = new Set<TabId>([
-  "shortcuts", "flows", "extraction", "templates", "profiles",
-  "import-export", "log", "settings", "quick-run",
+  "shortcuts",
+  "flows",
+  "extraction",
+  "templates",
+  "profiles",
+  "import-export",
+  "log",
+  "settings",
+  "quick-run",
 ]);
 const ADVANCED_TABS = new Set<TabId>([
-  "scripts", "shortcuts", "flows", "log",
-  "css-rules", "network-rules", "extraction", "domains",
-  "profiles", "templates", "import-export", "health", "settings", "quick-run",
+  "scripts",
+  "shortcuts",
+  "flows",
+  "log",
+  "css-rules",
+  "network-rules",
+  "extraction",
+  "domains",
+  "profiles",
+  "templates",
+  "import-export",
+  "health",
+  "settings",
+  "quick-run",
 ]);
 
 function isTabVisibleInMode(tab: TabId, mode: "basic" | "advanced"): boolean {
@@ -36,6 +54,7 @@ function mergeWithDefaults(stored: Partial<Settings>): Settings {
     execution: { ...DEFAULT_SETTINGS.execution, ...stored.execution },
     feedback: { ...DEFAULT_SETTINGS.feedback, ...stored.feedback },
     quickRun: { ...DEFAULT_SETTINGS.quickRun, ...stored.quickRun },
+    quickTip: { ...DEFAULT_SETTINGS.quickTip, ...stored.quickTip },
     notifications: { ...DEFAULT_SETTINGS.notifications, ...stored.notifications },
   };
 }
@@ -128,9 +147,10 @@ export const useAppStore = create<AppState>((set, get) => {
         const tabCache = await chrome.storage.session.get(SESSION_TAB_KEY);
         const savedTab = tabCache[SESSION_TAB_KEY] as TabId | undefined;
         const viewMode = settings.ui.viewMode;
-        const activeTab = savedTab && isTabVisibleInMode(savedTab, viewMode)
-          ? savedTab
-          : DEFAULT_TAB_FOR_MODE[viewMode];
+        const activeTab =
+          savedTab && isTabVisibleInMode(savedTab, viewMode)
+            ? savedTab
+            : DEFAULT_TAB_FOR_MODE[viewMode];
 
         set({
           settings,
@@ -173,6 +193,7 @@ export const useAppStore = create<AppState>((set, get) => {
           execution: { ...settings.execution, ...partial.execution },
           feedback: { ...settings.feedback, ...partial.feedback },
           quickRun: { ...settings.quickRun, ...partial.quickRun },
+          quickTip: { ...settings.quickTip, ...partial.quickTip },
           notifications: { ...settings.notifications, ...partial.notifications },
         };
         // If viewMode changed, reset active tab if it's not visible in the new mode
