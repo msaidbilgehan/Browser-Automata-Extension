@@ -4,6 +4,36 @@ All notable changes to Browser Automata are documented in this file.
 
 ---
 
+## v0.3.0 — 2026-06-20
+
+> Flow engine expansion, resilient recording, instant activation of imported and installed automations, and drift-proof versioning.
+
+### New Features
+
+- **Expanded Flow Steps** — The flow executor now runs a far richer step set: `click`, `type`, `scroll`, `navigate`, element/timeout/idle waits (`wait_element`, `wait_ms`, `wait_idle`), `condition` branching, inline `script`, `open_tab`/`close_tab`, `loop`, data extraction (`extract`, `run_extraction`), and clipboard steps (`clipboard_copy`, `clipboard_paste`).
+- **Live Flow Run State** — Flow runs broadcast their state and emit per-step run logs as they execute, so the UI reflects progress and failures in real time instead of only on completion.
+- **Resilient Recorder** — The recorder now survives SPA route changes and content-script re-initialization by persisting its active state to `sessionStorage` (`resumeRecordingIfActive`). It also records IME/composition input correctly (`compositionend`), captures the field's committed value rather than reconstructing keystrokes, settles scroll into a single action, and de-duplicates overlapping navigation signals.
+- **Quick Tip Settings** — New `quickTip` settings group, merged with defaults on load alongside the existing `quickRun` and `notifications` groups.
+
+### Bug Fixes
+
+- **Bulk Mutations Now Take Effect Immediately** — New `resyncEntitySideEffects` service reconciles every runtime engine that derives live state from stored entities — `declarativeNetRequest` dynamic rules, notification-check alarms, and scheduled-script alarms. Config import, conflict-resolved import, and template install/uninstall previously mutated many entities at once but skipped these bridges, leaving imported/installed network rules, notifications, and schedules inert (and uninstalled ones stale) until a browser restart. All bulk paths now resync in one idempotent pass.
+
+### Improvements
+
+- **Service Hardening** — Broad reliability and edge-case improvements across the background services (CSS injection, smart wait, element watcher, network manager, screenshot capture, cross-tab flow, shortcut manager, retry handler) and content scripts (element picker, selector tester, shortcut listener, toast, action highlight).
+
+### Build & Tooling
+
+- **Drift-Proof Versioning** — `package.json` is now the single source of truth for the version. A new `scripts/sync-version.ts`, wired into the npm `version` lifecycle hook, propagates the bumped version into `manifest.json` and the README badge and stages them into the release commit automatically. The script fails loudly if a version marker goes missing, so the manifest, README, and the runtime version (`chrome.runtime.getManifest().version`) can no longer drift apart. The build continues to inject `pkg.version` into the emitted manifest (`vite.config.ts`).
+- **Expanded Test Coverage** — New background-service test suites covering conflict detection, CSS injection, extraction formatting, flow execution, import/export, network management, notification checking, and retry handling.
+
+### Code Quality
+
+- **Removed Dead Hook** — Deleted the unused `use-chrome-message` popup hook.
+
+---
+
 ## v0.2.8 — 2026-04-09
 
 > Per-entity error notifications and global notification controls.
