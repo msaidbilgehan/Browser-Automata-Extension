@@ -1,7 +1,7 @@
 {
   "_format": "browser-automata-export",
   "_schemaVersion": 1,
-  "_exportedAt": "2026-03-22T00:00:00.000Z",
+  "_exportedAt": "2026-06-27T00:00:00.000Z",
   "_includesSecrets": false,
   "templates": [
     {
@@ -9,11 +9,16 @@
       "name": "Video Navigator",
       "description": "Binds N and P keys to navigate to next/previous video on YouTube. Supports player buttons and playlist navigation.",
       "category": "navigation",
-      "tags": ["video", "youtube", "shortcuts", "navigation"],
+      "tags": [
+        "video",
+        "youtube",
+        "shortcuts",
+        "navigation"
+      ],
       "meta": {
         "createdAt": "2024-01-01T00:00:00.000Z",
-        "updatedAt": "2024-01-01T00:00:00.000Z",
-        "templateVersion": "1.1.0"
+        "updatedAt": "2026-06-27T00:00:00.000Z",
+        "templateVersion": "1.2.0"
       },
       "shortcuts": [
         {
@@ -27,7 +32,7 @@
           },
           "action": {
             "type": "inline_script",
-            "code": "(function() {\n  const target = document.querySelector('.ytp-next-button, a.ytp-next-button, [data-action=\"next\"]');\n  if (target instanceof HTMLElement) { target.click(); return; }\n  const playlist = document.querySelector('ytd-playlist-panel-renderer a#wc-endpoint:not([aria-selected=\"true\"]) + a#wc-endpoint');\n  if (playlist instanceof HTMLElement) playlist.click();\n})();"
+            "code": "(function() {\n  function fire(key, code, kc) {\n    document.dispatchEvent(new KeyboardEvent('keydown', { key: key, code: code, keyCode: kc, which: kc, shiftKey: true, bubbles: true, cancelable: true }));\n  }\n  // 1) Player Next button (works in playlists and for autoplay-next on watch pages)\n  var btn = document.querySelector('.ytp-next-button');\n  if (btn instanceof HTMLElement && btn.getAttribute('aria-disabled') !== 'true') { btn.click(); return; }\n  // 2) Next item in the playlist panel, by index of the currently-selected item\n  var items = Array.prototype.slice.call(document.querySelectorAll('ytd-playlist-panel-video-renderer'));\n  var idx = items.findIndex(function(el) { return el.hasAttribute('selected'); });\n  if (idx !== -1 && items[idx + 1]) {\n    var link = items[idx + 1].querySelector('a#wc-endpoint');\n    if (link instanceof HTMLElement) { link.click(); return; }\n  }\n  // 3) Native YouTube shortcut SHIFT+N (next video / next recommended)\n  fire('N', 'KeyN', 78);\n})();"
           },
           "scope": {
             "type": "glob",
@@ -47,7 +52,7 @@
           },
           "action": {
             "type": "inline_script",
-            "code": "(function() {\n  const target = document.querySelector('.ytp-prev-button, [data-action=\"previous\"]');\n  if (target instanceof HTMLElement) target.click();\n})();"
+            "code": "(function() {\n  function fire(key, code, kc) {\n    document.dispatchEvent(new KeyboardEvent('keydown', { key: key, code: code, keyCode: kc, which: kc, shiftKey: true, bubbles: true, cancelable: true }));\n  }\n  // 1) Player Previous button (present, but disabled outside a playlist)\n  var btn = document.querySelector('.ytp-prev-button');\n  if (btn instanceof HTMLElement && btn.getAttribute('aria-disabled') !== 'true') { btn.click(); return; }\n  // 2) Previous item in the playlist panel, by index of the currently-selected item\n  var items = Array.prototype.slice.call(document.querySelectorAll('ytd-playlist-panel-video-renderer'));\n  var idx = items.findIndex(function(el) { return el.hasAttribute('selected'); });\n  if (idx > 0 && items[idx - 1]) {\n    var link = items[idx - 1].querySelector('a#wc-endpoint');\n    if (link instanceof HTMLElement) { link.click(); return; }\n  }\n  // 3) Native YouTube shortcut SHIFT+P (previous video in playlist)\n  fire('P', 'KeyP', 80);\n})();"
           },
           "scope": {
             "type": "glob",

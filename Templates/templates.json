@@ -2,8 +2,8 @@
   "video-navigator": {
     "version": ">=0.2.1",
     "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/video-navigator.json",
-    "contentHash": "d59c06d3df0ed3526229812656a79b8cff71f6caace49393d31f6d0179ce5952",
-    "updatedAt": "2026-03-22T00:00:00.000Z"
+    "contentHash": "5cc87c86b2cb2a67214e009008d747ab14ada0506b3812d342a0676ef9bc6598",
+    "updatedAt": "2026-06-27T00:00:00.000Z"
   },
   "element-hider": {
     "version": ">=0.2.1",
@@ -32,38 +32,38 @@
   "auto-skip-youtube-ads": {
     "version": ">=0.2.1",
     "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/auto-skip-youtube-ads.json",
-    "contentHash": "c1d6f443f6669720f75f0ebc457ba2007b5e204261454ee7057fd6dc4b4b7b73",
-    "updatedAt": "2026-03-22T00:00:00.000Z"
+    "contentHash": "e405ab495ff6abcfbf57e49ad5d50a770b146f9d8787773d75d4b0474647c62a",
+    "updatedAt": "2026-06-27T00:00:00.000Z"
   },
   "github-directory-download": {
     "version": ">=0.2.1",
     "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/github-directory-download.json",
-    "contentHash": "af74c192af530b42ef76ab6726df1993be37b8c399cc0a75da0169ee17e199a9",
-    "updatedAt": "2026-03-22T00:00:00.000Z"
+    "contentHash": "eb8308a06dccfe10765f7f403ecd63db4b02d569442352d4d65c490f03377b5f",
+    "updatedAt": "2026-06-27T00:00:00.000Z"
   },
   "twitter-x-media-downloader": {
     "version": ">=0.2.1",
     "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/twitter-x-media-downloader.json",
-    "contentHash": "8a56425341ea8dfe854b26d6fc025b2fadef844abdd05717ffc4a610b32b0436",
-    "updatedAt": "2026-03-22T00:00:00.000Z"
+    "contentHash": "bea8c7a1ef1c3eea26e2cf0988151df039da25961baac7ba46c1b7667671d667",
+    "updatedAt": "2026-06-27T00:00:00.000Z"
   },
   "remove-web-limits": {
     "version": ">=0.2.1",
     "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/remove-web-limits.json",
-    "contentHash": "be7f6207be23497067f76b189f99415f32515d04ca1dee2e57fa41efafb873ff",
-    "updatedAt": "2026-03-22T00:00:00.000Z"
+    "contentHash": "ac0630c9115e65c9279b7f661bf294ae209e1f77281379830e8a1e9fb98ac28f",
+    "updatedAt": "2026-06-27T00:00:00.000Z"
   },
   "instagram-download-button": {
     "version": ">=0.2.1",
     "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/instagram-download-button.json",
-    "contentHash": "97a4463fcec58740db83b6b21cb977df81829d15790db2d5170a1b3deba59d93",
-    "updatedAt": "2026-03-22T00:00:00.000Z"
+    "contentHash": "c4804f47162478629eb5bf99d8d85685a742531c220606d082b0cfb51907edce",
+    "updatedAt": "2026-06-27T00:00:00.000Z"
   },
   "open-movie-search": {
     "version": ">=0.2.1",
     "url": "https://raw.githubusercontent.com/msaidbilgehan/Browser-Automata-Extension/refs/heads/master/Templates/open-movie-search.json",
-    "contentHash": "de92fa85d0259b8bda2692a87e00fc874d81f46b25f368623c2300b90df25e99",
-    "updatedAt": "2026-03-22T00:00:00.000Z"
+    "contentHash": "ef399fceec0db0a27b717b82c5c11b45760e5e275124a250ba168e6cd91efe93",
+    "updatedAt": "2026-06-27T00:00:00.000Z"
   },
   "change-font": {
     "version": ">=0.2.1",
