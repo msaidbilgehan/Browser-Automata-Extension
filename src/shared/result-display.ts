@@ -132,7 +132,7 @@ export function injectResultWidget(
     </style>
     <div class="widget">
       <div class="header">
-        <span class="header-title">Extraction: ${name.replace(/</g, "&lt;").replace(/>/g, "&gt;") || "Result"}</span>
+        <span class="header-title">Extraction: ${name.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") || "Result"}</span>
         <span class="badge">${String(rowCount)} row${rowCount !== 1 ? "s" : ""}</span>
         <span class="badge">${format.toUpperCase()}</span>
         <button class="close-btn" aria-label="Close">&times;</button>
@@ -232,7 +232,7 @@ export function buildResultPageHtml(
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Extraction Result: ${name.replace(/</g, "&lt;").replace(/>/g, "&gt;") || "Untitled"}</title>
+  <title>Extraction Result: ${name.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") || "Untitled"}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -301,7 +301,7 @@ export function buildResultPageHtml(
 <body>
   <div class="container">
     <div class="header">
-      <h1>Extraction: ${name.replace(/</g, "&lt;").replace(/>/g, "&gt;") || "Result"}</h1>
+      <h1>Extraction: ${name.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") || "Result"}</h1>
       <span class="badge">${String(rowCount)} row${rowCount !== 1 ? "s" : ""}</span>
       <span class="badge">${format.toUpperCase()}</span>
     </div>

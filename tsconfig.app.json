@@ -4,6 +4,7 @@
     "composite": true,
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "declarationDir": "./node_modules/.tmp/declarations",
+    "outDir": "./node_modules/.tmp/out",
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {

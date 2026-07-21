@@ -1,4 +1,4 @@
-import { inlineDeepQuery } from "@/shared/deep-query-snippet";
+import { DEEP_QUERY_SNIPPET } from "@/shared/deep-query-snippet";
 
 /** Delay (ms) to let a newly-activated tab paint before capture. */
 const ACTIVATION_PAINT_MS = 150;
@@ -45,7 +45,7 @@ export async function captureElement(tabId: number, selector: string): Promise<s
   const scrollResults = await chrome.scripting.executeScript({
     target: { tabId },
     func: scrollElementIntoView,
-    args: [selector],
+    args: [selector, DEEP_QUERY_SNIPPET],
   });
   if (scrollResults[0]?.result !== true) {
     throw new Error(`Element not found: ${selector}`);
@@ -61,7 +61,7 @@ export async function captureElement(tabId: number, selector: string): Promise<s
   const results = await chrome.scripting.executeScript({
     target: { tabId },
     func: cropElementFromScreenshot,
-    args: [fullDataUrl, selector],
+    args: [fullDataUrl, selector, DEEP_QUERY_SNIPPET],
   });
 
   const first = results[0];
@@ -93,9 +93,21 @@ export async function saveScreenshot(dataUrl: string, filename: string): Promise
  * Injected into the page. Scrolls the element matching `selector` into the
  * viewport so it falls within the captured region. Returns false if no element
  * matches.
+ *
+ * Self-contained per `chrome.scripting.executeScript`'s `func` requirement —
+ * it cannot reference an imported helper directly, so `snippet`
+ * (DEEP_QUERY_SNIPPET) is passed in and eval'd to define `__qsDeep` in the page.
  */
-function scrollElementIntoView(selector: string): boolean {
-  const element = inlineDeepQuery(selector);
+function scrollElementIntoView(selector: string, snippet: string): boolean {
+  // eslint-disable-next-line @typescript-eslint/no-implied-eval, @typescript-eslint/no-unsafe-call
+  new Function(snippet)();
+  let element: Element | null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
+    element = (globalThis as any).__qsDeep(selector);
+  } catch {
+    element = null;
+  }
   if (!element) return false;
   element.scrollIntoView({ block: "center", inline: "center" });
   return true;
@@ -105,13 +117,25 @@ function scrollElementIntoView(selector: string): boolean {
  * Injected into the page. Finds the element by selector, reads its bounding
  * rect, loads the full screenshot into an Image, crops it via canvas, and
  * returns the cropped data URL.
+ *
+ * Self-contained per `chrome.scripting.executeScript`'s `func` requirement —
+ * see `scrollElementIntoView` above for why `snippet` is eval'd here too.
  */
 function cropElementFromScreenshot(
   dataUrl: string,
   selector: string,
+  snippet: string,
 ): Promise<string | { error: string }> {
   return new Promise((resolve) => {
-    const element = inlineDeepQuery(selector);
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval, @typescript-eslint/no-unsafe-call
+    new Function(snippet)();
+    let element: Element | null;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
+      element = (globalThis as any).__qsDeep(selector);
+    } catch {
+      element = null;
+    }
     if (!element) {
       resolve({ error: `Element not found: ${selector}` });
       return;

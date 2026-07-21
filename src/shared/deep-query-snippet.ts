@@ -43,6 +43,10 @@ if(typeof __qsaDeep==='undefined'){
     return null;
   }
   function __qsaDeep(sel,root){
+    // Selector syntax validity doesn't depend on the root, so only the
+    // outermost call (root omitted) rethrows — that's the one time we know
+    // for certain this isn't a per-shadow-root quirk (e.g. a detached root).
+    var isTop=!root;
     root=root||document;
     var out=[];
     if(__isXP(sel)){
@@ -50,7 +54,7 @@ if(typeof __qsaDeep==='undefined'){
       var xm=__xpAll(sel,root);for(var xi=0;xi<xm.length;xi++)out.push(xm[xi]);
       return out;
     }
-    try{var m=root.querySelectorAll(sel);for(var i=0;i<m.length;i++)out.push(m[i]);}catch(e){}
+    try{var m=root.querySelectorAll(sel);for(var i=0;i<m.length;i++)out.push(m[i]);}catch(e){if(isTop)throw e;}
     var all=root.querySelectorAll('*');
     for(var j=0;j<all.length;j++){
       if(all[j].shadowRoot){
@@ -63,12 +67,13 @@ if(typeof __qsaDeep==='undefined'){
     return out;
   }
   function __qsDeep(sel,root){
+    var isTop=!root;
     root=root||document;
     if(__isXP(sel)){
       // XPath can't reach shadow DOM — evaluate once against this root.
       return __xpFirst(sel,root);
     }
-    try{var m=root.querySelector(sel);if(m)return m;}catch(e){}
+    try{var m=root.querySelector(sel);if(m)return m;}catch(e){if(isTop)throw e;}
     var all=root.querySelectorAll('*');
     for(var i=0;i<all.length;i++){
       if(all[i].shadowRoot){
@@ -139,10 +144,26 @@ function xpathEvalFirst(expr: string, root: Document | ShadowRoot): Element | nu
   return null;
 }
 
+/**
+ * Thrown by `inlineDeepQuery`/`inlineDeepQueryAll` when `selector` is not
+ * valid CSS selector syntax — distinct from a valid selector matching nothing.
+ */
+export class InvalidSelectorError extends Error {
+  constructor(selector: string, cause: unknown) {
+    super(`Invalid selector syntax: ${selector}`, { cause });
+    this.name = "InvalidSelectorError";
+  }
+}
+
 export function inlineDeepQueryAll(
   selector: string,
   root?: Document | ShadowRoot,
 ): Element[] {
+  // Selector syntax validity doesn't depend on the root, so only the
+  // outermost call (root omitted by the caller) rethrows — that's the one
+  // time we know for certain a caught error isn't a per-shadow-root quirk
+  // (e.g. a detached root) rather than the selector itself.
+  const isTopLevelCall = root === undefined;
   const searchRoot: Document | ShadowRoot = root ?? document;
   const out: Element[] = [];
 
@@ -158,8 +179,8 @@ export function inlineDeepQueryAll(
     for (const m of matches) {
       out.push(m);
     }
-  } catch {
-    // invalid selector
+  } catch (err) {
+    if (isTopLevelCall) throw new InvalidSelectorError(selector, err);
   }
   const allElements = searchRoot.querySelectorAll("*");
   for (const el of allElements) {
@@ -186,6 +207,7 @@ export function inlineDeepQuery(
   selector: string,
   root?: Document | ShadowRoot,
 ): Element | null {
+  const isTopLevelCall = root === undefined;
   const searchRoot: Document | ShadowRoot = root ?? document;
 
   if (isXPathSelector(selector)) {
@@ -196,8 +218,8 @@ export function inlineDeepQuery(
   try {
     const match = searchRoot.querySelector(selector);
     if (match !== null) return match;
-  } catch {
-    // skip
+  } catch (err) {
+    if (isTopLevelCall) throw new InvalidSelectorError(selector, err);
   }
   const allElements = searchRoot.querySelectorAll("*");
   for (const el of allElements) {

@@ -1,5 +1,5 @@
 import { localStore } from "@/shared/storage";
-import { inlineDeepQuery } from "@/shared/deep-query-snippet";
+import { DEEP_QUERY_SNIPPET } from "@/shared/deep-query-snippet";
 import type { FormFillProfile, EntityId } from "@/shared/types/entities";
 
 /**
@@ -20,7 +20,7 @@ export async function fillForm(
   const results = await chrome.scripting.executeScript({
     target: { tabId },
     func: executeFill,
-    args: [profile.fields],
+    args: [profile.fields, DEEP_QUERY_SNIPPET],
   });
 
   const first = results[0];
@@ -59,8 +59,17 @@ interface InjectedFieldMapping {
 /**
  * Injected into the page. Iterates over field mappings, tries the primary
  * selector first then fallbacks, and fills each element.
+ *
+ * Self-contained per `chrome.scripting.executeScript`'s `func` requirement —
+ * it cannot reference an imported helper directly, so `snippet`
+ * (DEEP_QUERY_SNIPPET) is passed in and eval'd to define `__qsDeep` in the page.
  */
-function executeFill(fields: InjectedFieldMapping[]): { filled: number; skipped: number } {
+function executeFill(
+  fields: InjectedFieldMapping[],
+  snippet: string,
+): { filled: number; skipped: number } {
+  // eslint-disable-next-line @typescript-eslint/no-implied-eval, @typescript-eslint/no-unsafe-call
+  new Function(snippet)();
   let filled = 0;
   let skipped = 0;
 
@@ -69,7 +78,13 @@ function executeFill(fields: InjectedFieldMapping[]): { filled: number; skipped:
     let element: Element | null = null;
 
     for (const sel of selectors) {
-      element = inlineDeepQuery(sel);
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
+        element = (globalThis as any).__qsDeep(sel);
+      } catch {
+        // invalid selector syntax on this fallback — try the next one
+        element = null;
+      }
       if (element) break;
     }
 
