@@ -286,13 +286,16 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
   try {
     switch (config.type) {
       case "click": {
-        // Returns false when the selector matches nothing, so a missed click is
-        // reported as a failure instead of being silently swallowed by `?.`
-        // (which evaluated to `undefined` and let the node report success).
+        // Polls for the target (like wait_element) instead of a single instant
+        // check, so a click right after a SPA navigation doesn't fail just
+        // because the element hasn't rendered yet. Still returns false — and
+        // the node still fails loudly — when nothing matches within the
+        // timeout, instead of being silently swallowed by `?.` (which
+        // evaluated to `undefined` and let the node report success).
         const clicked = await injectActionResult(
           ctx.tabId,
           `
-          const el = __qsDeep(${JSON.stringify(config.selector)});
+          const el = await __waitForDeep(${JSON.stringify(config.selector)}, ${String(ACTION_RETRY_TIMEOUT_MS)});
           if (!el) return false;
           if (typeof el.click === "function") el.click();
           else el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
@@ -309,7 +312,7 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
         const typed = await injectActionResult(
           ctx.tabId,
           `
-          const el = __qsDeep(${JSON.stringify(config.selector)});
+          const el = await __waitForDeep(${JSON.stringify(config.selector)}, ${String(ACTION_RETRY_TIMEOUT_MS)});
           if (!el) return false;
           el.value = ${interpolateExpr(config.text)};
           el.dispatchEvent(new Event('input', { bubbles: true }));
@@ -598,7 +601,7 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
         const copied = await injectActionResult(
           ctx.tabId,
           `
-          const el = __qsDeep(${JSON.stringify(config.selector)});
+          const el = await __waitForDeep(${JSON.stringify(config.selector)}, ${String(ACTION_RETRY_TIMEOUT_MS)});
           if (!el) return false;
           await navigator.clipboard.writeText(el.textContent ?? '');
           return true;
@@ -614,7 +617,7 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
         const pasted = await injectActionResult(
           ctx.tabId,
           `
-          const el = __qsDeep(${JSON.stringify(config.selector)});
+          const el = await __waitForDeep(${JSON.stringify(config.selector)}, ${String(ACTION_RETRY_TIMEOUT_MS)});
           if (!el) return false;
           const text = await navigator.clipboard.readText();
           el.value = text;
@@ -722,16 +725,45 @@ function interpolateExpr(template: string): string {
 }
 
 /**
- * Inject `code` (a statement body with access to __qsDeep / __qsaDeep) into the
- * page's MAIN world and return whatever the code `return`s.
+ * How long selector-based actions (click/type/clipboard) keep polling for
+ * their target before giving up. Mirrors wait_element's own poll loop so an
+ * action right after a SPA navigation doesn't fail just because the target
+ * hasn't rendered yet on the exact millisecond it's queried.
+ */
+const ACTION_RETRY_TIMEOUT_MS = 3000;
+
+/**
+ * Poll helper injected alongside DEEP_QUERY_SNIPPET: retries __qsDeep(sel) on
+ * every animation frame until it matches or `timeoutMs` elapses, resolving to
+ * the element or `null` (never rejects — callers already branch on `!el`).
+ */
+const WAIT_FOR_DEEP_SNIPPET = `
+function __waitForDeep(sel, timeoutMs) {
+  return new Promise((resolve) => {
+    const deadline = Date.now() + timeoutMs;
+    const check = () => {
+      const el = __qsDeep(sel);
+      if (el) { resolve(el); return; }
+      if (Date.now() >= deadline) { resolve(null); return; }
+      requestAnimationFrame(check);
+    };
+    check();
+  });
+}`.trim();
+
+/**
+ * Inject `code` (a statement body with access to __qsDeep / __qsaDeep /
+ * __waitForDeep) into the page's MAIN world and return whatever the code
+ * `return`s.
  *
  * Unlike {@link injectAction}, the injected expression's result is preserved so
  * callers can detect outcomes — e.g. that a target element was not found —
  * instead of assuming the node succeeded.
  */
 async function injectActionResult(tabId: number, code: string): Promise<unknown> {
-  // Prepend shadow-DOM-aware helpers so __qsDeep / __qsaDeep are available
-  const wrappedCode = `(async () => { ${DEEP_QUERY_SNIPPET}; ${code} })()`;
+  // Prepend shadow-DOM-aware helpers (__qsDeep/__qsaDeep) and the
+  // actionability poll helper (__waitForDeep) used by selector-based actions.
+  const wrappedCode = `(async () => { ${DEEP_QUERY_SNIPPET}; ${WAIT_FOR_DEEP_SNIPPET}; ${code} })()`;
   const results = await chrome.scripting.executeScript({
     target: { tabId },
     world: "MAIN",
