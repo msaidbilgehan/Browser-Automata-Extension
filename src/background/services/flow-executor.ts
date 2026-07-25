@@ -1,5 +1,5 @@
 import { localStore } from "@/shared/storage";
-import { appendLogEntry } from "@/background/handlers/log-handler";
+import { appendLogEntry, flushLogEntries } from "@/background/handlers/log-handler";
 import { notifyError, notifyPageToast } from "./error-surfacer";
 import { executeScript } from "./script-manager";
 import { DEEP_QUERY_SNIPPET } from "@/shared/deep-query-snippet";
@@ -19,8 +19,31 @@ import {
 
 const SESSION_KEY = "_flowRunState";
 
-async function broadcastState(runState: FlowRunState): Promise<void> {
-  await chrome.storage.session.set({ [SESSION_KEY]: runState });
+/**
+ * Chain of in-flight session writes, so fire-and-forget broadcasts still land
+ * in the order they were issued.
+ */
+let broadcastChain: Promise<unknown> = Promise.resolve();
+
+/**
+ * Publish run state for the popup's FlowRunWidget — without blocking the run.
+ *
+ * Progress reporting must never sit between the user's trigger and the action it
+ * triggers: two awaited session writes per node (plus an awaited log append) put
+ * ~200 ms of bookkeeping in front of every step, which is enough to push a
+ * click past the browser's ~5s transient-activation window and make
+ * activation-gated calls like `requestFullscreen()` no-op even though the click
+ * itself landed.
+ *
+ * `chrome.storage.session.set` marshals its argument when called, so passing the
+ * mutable `runState` is safe: each call captures the state as it was at issue.
+ */
+function broadcastState(runState: FlowRunState): void {
+  const write = (): Promise<void> => chrome.storage.session.set({ [SESSION_KEY]: runState });
+  // The trailing catch keeps the chain usable after a failed write and stops a
+  // dropped broadcast from surfacing as an unhandled rejection — progress
+  // reporting must not be able to break a run.
+  broadcastChain = broadcastChain.then(write).catch(() => undefined);
 }
 
 function addRunLog(runState: FlowRunState, level: FlowRunLogEntry["level"], message: string): void {
@@ -159,15 +182,30 @@ export async function executeFlow(
   flowId: EntityId,
   tabId: number,
 ): Promise<{ ok: boolean; error?: string }> {
-  if (runningFlows.has(flowId)) {
-    return { ok: false, error: "Flow is already running" };
-  }
-
   const flows = (await localStore.get("flows")) ?? {};
   const flow = flows[flowId];
 
   if (!flow) {
     return { ok: false, error: "Flow not found" };
+  }
+
+  if (runningFlows.has(flowId)) {
+    // Shortcut dispatch is fire-and-forget (`void executeFlow(...)`), so an
+    // early return here used to vanish without a trace: pressing the shortcut
+    // again while a long `wait_element` was still parked produced no log entry,
+    // no toast and no run — indistinguishable from a dead shortcut. Report it.
+    const message = `Flow "${flow.name}" is already running — trigger ignored`;
+    // Awaited: this branch returns before the run's `finally` flush, and nothing
+    // else will persist the entry.
+    await appendLogEntry({
+      action: "flow_executed",
+      status: "info",
+      entityId: flow.id,
+      entityType: "flow",
+      message,
+    });
+    void notifyPageToast(tabId, message);
+    return { ok: false, error: "Flow is already running" };
   }
 
   runningFlows.add(flowId);
@@ -203,9 +241,9 @@ export async function executeFlow(
   const ctx: FlowContext = { tabId, runState, stepIndexMap, nodeMap };
 
   addRunLog(runState, "info", `Flow "${flow.name}" started`);
-  await broadcastState(runState);
+  broadcastState(runState);
 
-  await appendLogEntry({
+  void appendLogEntry({
     action: "flow_executed",
     status: "info",
     entityId: flow.id,
@@ -219,9 +257,9 @@ export async function executeFlow(
     runState.status = "success";
     runState.completedAt = now();
     addRunLog(runState, "success", `Flow "${flow.name}" completed successfully`);
-    await broadcastState(runState);
+    broadcastState(runState);
 
-    await appendLogEntry({
+    void appendLogEntry({
       action: "flow_executed",
       status: "success",
       entityId: flow.id,
@@ -236,9 +274,9 @@ export async function executeFlow(
     runState.status = "error";
     runState.completedAt = now();
     addRunLog(runState, "error", `Flow "${flow.name}" failed: ${errorMessage}`);
-    await broadcastState(runState);
+    broadcastState(runState);
 
-    await appendLogEntry({
+    void appendLogEntry({
       action: "flow_error",
       status: "error",
       entityId: flow.id,
@@ -254,6 +292,10 @@ export async function executeFlow(
     return { ok: false, error: errorMessage };
   } finally {
     runningFlows.delete(flowId);
+    // Nodes queue their log entries instead of awaiting them (see
+    // appendLogEntry), so persist the run's entries here — before the caller
+    // resumes and the service worker becomes eligible for shutdown.
+    await flushLogEntries();
     // No module-level state to release — runState / stepIndexMap / nodeMap are
     // local to this invocation and freed when it returns.
   }
@@ -279,7 +321,7 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
       step.status = "running";
       step.startedAt = now();
       addRunLog(runState, "info", `Running: ${step.label}`);
-      await broadcastState(runState);
+      broadcastState(runState);
     }
   }
 
@@ -292,7 +334,7 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
         // the node still fails loudly — when nothing matches within the
         // timeout, instead of being silently swallowed by `?.` (which
         // evaluated to `undefined` and let the node report success).
-        const clicked = await injectActionResult(
+        const clicked = await runInPage(
           ctx.tabId,
           `
           const el = await __waitForDeep(${JSON.stringify(config.selector)}, ${String(ACTION_RETRY_TIMEOUT_MS)});
@@ -303,13 +345,15 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
         `,
         );
         if (clicked !== true) {
-          throw new Error(`Click target not found: no element matched "${config.selector}"`);
+          throw new Error(
+            `Click target not found: no element matched "${config.selector}" within ${String(ACTION_RETRY_TIMEOUT_MS)}ms`,
+          );
         }
         break;
       }
 
       case "type": {
-        const typed = await injectActionResult(
+        const typed = await runInPage(
           ctx.tabId,
           `
           const el = await __waitForDeep(${JSON.stringify(config.selector)}, ${String(ACTION_RETRY_TIMEOUT_MS)});
@@ -321,7 +365,9 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
         `,
         );
         if (typed !== true) {
-          throw new Error(`Type target not found: no element matched "${config.selector}"`);
+          throw new Error(
+            `Type target not found: no element matched "${config.selector}" within ${String(ACTION_RETRY_TIMEOUT_MS)}ms`,
+          );
         }
         break;
       }
@@ -343,21 +389,25 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
         break;
       }
 
-      case "wait_element":
-        await injectAction(
+      case "wait_element": {
+        // Returns a boolean instead of rejecting on timeout: a rejection thrown
+        // inside injected code cannot reach the service worker (see
+        // {@link runInPage}), so the old version's `reject(new Error('Timeout
+        // waiting for element'))` was silently discarded and the node reported
+        // success after waiting out its full timeout — the flow then walked on
+        // and blamed the *next* node ("Click target not found") for an element
+        // this node already knew never appeared.
+        const appeared = await runInPage(
           ctx.tabId,
-          `
-          await new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => reject(new Error('Timeout waiting for element')), ${String(config.timeoutMs)});
-            const check = () => {
-              if (__qsDeep(${JSON.stringify(config.selector)})) { clearTimeout(timeout); resolve(undefined); }
-              else { requestAnimationFrame(check); }
-            };
-            check();
-          });
-        `,
+          `return (await __waitForDeep(${JSON.stringify(config.selector)}, ${String(config.timeoutMs)})) !== null;`,
         );
+        if (appeared !== true) {
+          throw new Error(
+            `Wait for element timed out after ${String(config.timeoutMs)}ms: no element matched "${config.selector}"`,
+          );
+        }
         break;
+      }
 
       case "wait_ms":
         await injectAction(
@@ -367,7 +417,21 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
         break;
 
       case "wait_idle":
-        await injectAction(ctx.tabId, `await new Promise(r => requestIdleCallback(r))`);
+        // Capped: `requestIdleCallback` never fires while a tab is hidden and
+        // can be starved indefinitely on a busy page. Unbounded, that hung the
+        // whole run forever — and because `runningFlows` is only released when
+        // the run settles, every later trigger of the same flow was rejected
+        // with "Flow is already running".
+        await injectAction(
+          ctx.tabId,
+          `await new Promise((resolve) => {
+            let cap;
+            const done = () => { clearTimeout(cap); resolve(undefined); };
+            cap = setTimeout(done, ${String(IDLE_WAIT_CAP_MS)});
+            if (typeof requestIdleCallback === "function") requestIdleCallback(done);
+            else setTimeout(done, 0);
+          })`,
+        );
         break;
 
       case "condition":
@@ -468,7 +532,7 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
             ? `Extracted "${config.outputVar}": ${extractedStr.slice(0, 500)}`
             : `Extract "${config.outputVar}" from "${config.selector}": no value found`,
         );
-        await broadcastState(runState);
+        broadcastState(runState);
 
         // Perform output actions if configured
         const actions = config.outputActions ?? [];
@@ -579,7 +643,7 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
         }
         const rowCount = extractionResult.data?.length ?? 0;
         addRunLog(runState, "success", `Extraction completed: ${String(rowCount)} row(s)`);
-        await broadcastState(runState);
+        broadcastState(runState);
 
         // Process output actions (clipboard, download, show_page, show_tab) as configured on the rule
         if (extractionResult.formatted && rowCount > 0) {
@@ -598,7 +662,7 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
       }
 
       case "clipboard_copy": {
-        const copied = await injectActionResult(
+        const copied = await runInPage(
           ctx.tabId,
           `
           const el = await __waitForDeep(${JSON.stringify(config.selector)}, ${String(ACTION_RETRY_TIMEOUT_MS)});
@@ -614,7 +678,7 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
       }
 
       case "clipboard_paste": {
-        const pasted = await injectActionResult(
+        const pasted = await runInPage(
           ctx.tabId,
           `
           const el = await __waitForDeep(${JSON.stringify(config.selector)}, ${String(ACTION_RETRY_TIMEOUT_MS)});
@@ -640,11 +704,11 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
         step.status = "success";
         step.completedAt = now();
         addRunLog(runState, "success", `Completed: ${step.label}`);
-        await broadcastState(runState);
+        broadcastState(runState);
       }
     }
 
-    await appendLogEntry({
+    void appendLogEntry({
       action: "flow_executed",
       status: "success",
       entityId: node.id,
@@ -663,11 +727,11 @@ async function executeNode(flow: Flow, node: FlowNode, ctx: FlowContext): Promis
         step.completedAt = now();
         step.error = errorMessage;
         addRunLog(runState, "error", `Failed: ${step.label} — ${errorMessage}`);
-        await broadcastState(runState);
+        broadcastState(runState);
       }
     }
 
-    await appendLogEntry({
+    void appendLogEntry({
       action: "flow_error",
       status: "error",
       entityId: node.id,
@@ -732,50 +796,101 @@ function interpolateExpr(template: string): string {
  */
 const ACTION_RETRY_TIMEOUT_MS = 3000;
 
+/** Upper bound on `wait_idle` so a hidden or busy tab can't stall a run forever. */
+const IDLE_WAIT_CAP_MS = 5000;
+
 /**
- * Poll helper injected alongside DEEP_QUERY_SNIPPET: retries __qsDeep(sel) on
- * every animation frame until it matches or `timeoutMs` elapses, resolving to
- * the element or `null` (never rejects — callers already branch on `!el`).
+ * Poll helper injected alongside DEEP_QUERY_SNIPPET: retries __qsDeep(sel)
+ * until it matches or `timeoutMs` elapses, resolving to the element or `null`.
+ * Rejects only for an invalid selector, so callers can tell "this selector is
+ * malformed" apart from "this selector matched nothing".
+ *
+ * The deadline lives on a `setTimeout`, not on a `Date.now()` check inside the
+ * poll: `requestAnimationFrame` is suspended in hidden tabs, so a frame-only
+ * loop neither re-checks nor gives up there — a long `wait_element` in a
+ * backgrounded tab hung the run indefinitely instead of timing out.
  */
 const WAIT_FOR_DEEP_SNIPPET = `
 function __waitForDeep(sel, timeoutMs) {
-  return new Promise((resolve) => {
-    const deadline = Date.now() + timeoutMs;
-    const check = () => {
-      const el = __qsDeep(sel);
-      if (el) { resolve(el); return; }
-      if (Date.now() >= deadline) { resolve(null); return; }
-      requestAnimationFrame(check);
-    };
+  return new Promise((resolve, reject) => {
+    var settled = false;
+    var deadline = setTimeout(function () { finish(resolve, null); }, timeoutMs);
+    function finish(fn, arg) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(deadline);
+      fn(arg);
+    }
+    function check() {
+      if (settled) return;
+      var el;
+      try { el = __qsDeep(sel); }
+      catch (err) { finish(reject, err); return; }
+      if (el) { finish(resolve, el); return; }
+      if (document.hidden) setTimeout(check, 100);
+      else requestAnimationFrame(check);
+    }
     check();
   });
 }`.trim();
+
+/**
+ * Envelope every injected snippet resolves to.
+ *
+ * `chrome.scripting.executeScript` has no error channel for async injected
+ * code: an `InjectionResult` carries only `result`, so a rejected promise
+ * arrives as `result: undefined` with the reason gone. Injected code therefore
+ * never relies on throwing — it catches in the page and reports the failure as
+ * data, which {@link runInPage} re-throws in the service worker.
+ */
+type PageResult = { ok: true; value: unknown } | { ok: false; error: string };
+
+function isPageResult(value: unknown): value is PageResult {
+  return typeof value === "object" && value !== null && "ok" in value;
+}
 
 /**
  * Inject `code` (a statement body with access to __qsDeep / __qsaDeep /
  * __waitForDeep) into the page's MAIN world and return whatever the code
  * `return`s.
  *
- * Unlike {@link injectAction}, the injected expression's result is preserved so
- * callers can detect outcomes — e.g. that a target element was not found —
- * instead of assuming the node succeeded.
+ * Errors raised in the page — an invalid selector, a `navigator.clipboard`
+ * denial, a thrown DOM exception — surface here as thrown errors instead of
+ * being flattened to `undefined`, so the node that actually failed is the node
+ * the log blames.
  */
-async function injectActionResult(tabId: number, code: string): Promise<unknown> {
+async function runInPage(tabId: number, code: string): Promise<unknown> {
   // Prepend shadow-DOM-aware helpers (__qsDeep/__qsaDeep) and the
   // actionability poll helper (__waitForDeep) used by selector-based actions.
-  const wrappedCode = `(async () => { ${DEEP_QUERY_SNIPPET}; ${WAIT_FOR_DEEP_SNIPPET}; ${code} })()`;
+  const wrappedCode = `(async () => {
+    ${DEEP_QUERY_SNIPPET};
+    ${WAIT_FOR_DEEP_SNIPPET};
+    try { return { ok: true, value: await (async () => { ${code} })() }; }
+    catch (err) { return { ok: false, error: (err && err.message) ? err.message : String(err) }; }
+  })()`;
   const results = await chrome.scripting.executeScript({
     target: { tabId },
     world: "MAIN",
     func: cspSafeExecExpression,
     args: [wrappedCode],
   });
-  return results[0]?.result;
+
+  const outcome: unknown = results[0]?.result;
+  if (!isPageResult(outcome)) {
+    // No envelope came back: the frame navigated away or was removed mid-run,
+    // or the injection never executed. Treating this as success is what let
+    // silent no-ops through before.
+    throw new Error(
+      "Page returned no result — the tab navigated away or the injection was blocked",
+    );
+  }
+  if (!outcome.ok) throw new Error(outcome.error);
+  return outcome.value;
 }
 
 /** Inject a fire-and-forget side effect whose return value is irrelevant. */
 async function injectAction(tabId: number, code: string): Promise<void> {
-  await injectActionResult(tabId, code);
+  await runInPage(tabId, code);
 }
 
 async function executeCondition(

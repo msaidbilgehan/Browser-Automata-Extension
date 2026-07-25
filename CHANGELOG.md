@@ -4,6 +4,24 @@ All notable changes to Browser Automata are documented in this file.
 
 ---
 
+## Unreleased
+
+> Flow steps can no longer report a success they did not achieve, and bookkeeping no longer delays the actions a trigger fires.
+
+### Bug Fixes
+
+- **Injected Failures Are No Longer Swallowed** — `chrome.scripting.executeScript` has no error channel for async injected code: a rejected promise arrives as `result: undefined` with the reason gone. Every injected snippet now resolves an `{ ok, value | error }` envelope that the service worker unwraps, so page-side errors (invalid selector, clipboard denial, thrown DOM exception) surface as the failure they are, and a missing envelope — tab navigated away, injection blocked — fails the node instead of passing as success.
+- **`wait_element` Can Fail Again** — Its timeout was raised as a rejection inside injected code, which the above dropped: the node reported **completed** after waiting out its full timeout, the run walked on, and the *next* step was blamed for an element the wait already knew never appeared (a 5-minute wait surfaced as `Click target not found`). The node now returns whether the element appeared and fails with the selector and the elapsed timeout.
+- **Long Waits No Longer Hang A Run In A Hidden Tab** — The selector poll's deadline was a `Date.now()` check inside a `requestAnimationFrame` loop, and rAF is suspended in hidden tabs: a backgrounded `wait_element` neither re-checked nor timed out, hanging the run forever and leaving the flow permanently locked by the concurrency guard. The deadline is now a timer, and the poll falls back to `setTimeout` while `document.hidden`. `wait_idle` is likewise capped, since `requestIdleCallback` never fires in a hidden tab.
+- **Ignored Triggers Are Reported** — Re-triggering a flow that was still mid-run returned before any logging, and shortcut dispatch is fire-and-forget, so the press vanished with no run, no log entry and no toast — indistinguishable from a broken shortcut. It now logs and toasts.
+- **Logging No Longer Alters Control Flow** — A failed activity-log write could fail the flow that produced it, and fire-and-forget appends could surface as unhandled rejections. Log writes are best-effort: they settle, never reject, and report a dropped batch on the service worker console.
+
+### Improvements
+
+- **Bookkeeping Off The Critical Path** — The whole activity log lives under one storage key, so each append rewrote the entire array (~1.8 MB at the 5000-entry cap) — and the flow executor awaited one, plus two session writes, between every node. That added ~200 ms per step to the gap between a user's keypress and the click it triggers, enough to push activation-gated calls such as `requestFullscreen()` outside the browser's ~5s transient-activation window so the click landed but did nothing. Entries are now queued, coalesced into one write per burst, stamped on enqueue (so deferral cannot skew recorded times) and flushed when the run settles; run-state broadcasts are ordered but non-blocking.
+
+---
+
 ## v0.3.0 — 2026-06-20
 
 > Flow engine expansion, resilient recording, instant activation of imported and installed automations, and drift-proof versioning.
