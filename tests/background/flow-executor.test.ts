@@ -279,3 +279,106 @@ describe("executeFlow — concurrent trigger", () => {
     await firstRun;
   });
 });
+
+/**
+ * The tests above mock `chrome.scripting.executeScript`, so they never exercise
+ * the code that is actually injected. These drive the real injected string —
+ * deep-query helpers, poll helper and result envelope — through
+ * `cspSafeExecExpression` against a jsdom document, the way Chrome would:
+ * `func(...args)` is invoked and its promise awaited before the result is
+ * handed back.
+ */
+describe("executeFlow — injected code against a real DOM", () => {
+  let store: Record<string, unknown>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    store = { flows: {}, log: [] };
+
+    mockFn(chrome.storage.local.get).mockImplementation(async (key: string) =>
+      key in store ? { [key]: store[key] } : {},
+    );
+    mockFn(chrome.storage.local.set).mockImplementation(async (items: Record<string, unknown>) => {
+      Object.assign(store, items);
+    });
+    mockFn(chrome.storage.session.set).mockResolvedValue(undefined);
+    mockFn(chrome.tabs.sendMessage).mockResolvedValue(undefined);
+
+    // Run the injected code for real, mirroring how Chrome awaits a
+    // promise-returning `func` before reporting its result.
+    mockFn(chrome.scripting.executeScript).mockImplementation(
+      async (injection: { func: (...args: unknown[]) => unknown; args?: unknown[] }) => [
+        { result: await injection.func(...(injection.args ?? [])) },
+      ],
+    );
+
+    document.body.innerHTML = "";
+  });
+
+  it("clicks a matching element and reports success", async () => {
+    const button = document.createElement("button");
+    button.className = "next-icon";
+    const clicks: string[] = [];
+    button.addEventListener("click", () => clicks.push("clicked"));
+    document.body.appendChild(button);
+
+    store["flows"] = { "flow-1": clickFlow("button.next-icon") };
+
+    const result = await executeFlow("flow-1" as EntityId, 1);
+
+    expect(result.ok).toBe(true);
+    expect(clicks).toEqual(["clicked"]);
+  });
+
+  it("reaches a target inside an open shadow root", async () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const shadow = host.attachShadow({ mode: "open" });
+    const button = document.createElement("button");
+    button.className = "next-icon";
+    const clicks: string[] = [];
+    button.addEventListener("click", () => clicks.push("clicked"));
+    shadow.appendChild(button);
+
+    store["flows"] = { "flow-1": clickFlow("button.next-icon") };
+
+    const result = await executeFlow("flow-1" as EntityId, 1);
+
+    expect(result.ok).toBe(true);
+    expect(clicks).toEqual(["clicked"]);
+  });
+
+  it("surfaces an invalid selector as its own error, not a missing target", async () => {
+    store["flows"] = { "flow-1": clickFlow("button:::broken") };
+
+    const result = await executeFlow("flow-1" as EntityId, 1);
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/selector/i);
+    expect(result.error).not.toMatch(/no element matched/i);
+  });
+
+  it("passes wait_element when the element is already present", async () => {
+    const button = document.createElement("button");
+    button.className = "skip";
+    document.body.appendChild(button);
+
+    store["flows"] = { "flow-1": waitThenClickFlow("button.skip", 1000) };
+
+    const result = await executeFlow("flow-1" as EntityId, 1);
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("fails wait_element — naming the wait — when the element never appears", async () => {
+    store["flows"] = { "flow-1": waitThenClickFlow("button.never-there", 50) };
+
+    const result = await executeFlow("flow-1" as EntityId, 1);
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/wait for element timed out after 50ms/i);
+    // The wait is blamed, and the click node never runs.
+    const log = store["log"] as ActivityLogEntry[];
+    expect(log.some((e) => e.message.includes("node click"))).toBe(false);
+  });
+});
